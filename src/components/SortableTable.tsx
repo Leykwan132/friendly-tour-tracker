@@ -17,6 +17,7 @@ interface SortableTableProps<T> {
   defaultDirection?: SortDirection;
   emptyMessage?: string;
   rowKey: (row: T) => string | number;
+  compact?: boolean;
 }
 
 export function SortableTable<T>({
@@ -26,6 +27,7 @@ export function SortableTable<T>({
   defaultDirection = "desc",
   emptyMessage = "No data yet.",
   rowKey,
+  compact = false,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultDirection);
@@ -63,8 +65,8 @@ export function SortableTable<T>({
   }
 
   return (
-    <div className="table-scroll">
-      <table className="data-table">
+    <div className={compact ? "table-scroll compact-table-scroll" : "table-scroll"}>
+      <table className={compact ? "data-table compact-table" : "data-table"}>
         <thead>
           <tr>
             {columns.map((column) => (

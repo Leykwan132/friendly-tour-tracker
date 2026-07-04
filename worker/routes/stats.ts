@@ -21,6 +21,10 @@ interface PlayerStatsRow {
   total_kills: number;
   total_deaths: number;
   total_assists: number;
+  radiant_wins: number;
+  radiant_games: number;
+  dire_wins: number;
+  dire_games: number;
 }
 
 interface HeroStatsRow {
@@ -94,6 +98,15 @@ function computeCurrentStreak(results: PlayerMatchResultRow[], type: "win" | "lo
   }
 
   return streak;
+}
+
+function computeLastNRecord(
+  results: PlayerMatchResultRow[],
+  count: number,
+): { wins: number; losses: number } {
+  const recent = results.slice(0, count);
+  const wins = recent.filter((result) => result.won === 1).length;
+  return { wins, losses: recent.length - wins };
 }
 
 function pickLongestStreak(
@@ -170,25 +183,50 @@ export async function handleStats(
   }
 
   if (pathname === "/api/stats/players") {
-    const result = await db
-      .prepare(
+    const [statsResult, historyResult] = await db.batch([
+      db.prepare(
         `SELECT p.id, p.name,
                 COUNT(mp.id) AS games,
                 SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins,
                 SUM(mp.kills) AS total_kills,
                 SUM(mp.deaths) AS total_deaths,
-                SUM(mp.assists) AS total_assists
+                SUM(mp.assists) AS total_assists,
+                SUM(CASE WHEN mp.side = 'radiant' AND mp.side = m.winner_side THEN 1 ELSE 0 END) AS radiant_wins,
+                SUM(CASE WHEN mp.side = 'radiant' THEN 1 ELSE 0 END) AS radiant_games,
+                SUM(CASE WHEN mp.side = 'dire' AND mp.side = m.winner_side THEN 1 ELSE 0 END) AS dire_wins,
+                SUM(CASE WHEN mp.side = 'dire' THEN 1 ELSE 0 END) AS dire_games
          FROM players p
          LEFT JOIN match_participants mp ON mp.player_id = p.id
          LEFT JOIN matches m ON m.id = mp.match_id
          GROUP BY p.id
          ORDER BY p.name COLLATE NOCASE ASC`,
-      )
-      .all<PlayerStatsRow>();
+      ),
+      db.prepare(
+        `SELECT p.id AS player_id,
+                CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END AS won
+         FROM match_participants mp
+         JOIN matches m ON m.id = mp.match_id
+         JOIN players p ON p.id = mp.player_id
+         ORDER BY p.id, m.played_at DESC, m.id DESC`,
+      ),
+    ]);
+
+    const historyByPlayer = new Map<number, PlayerMatchResultRow[]>();
+    for (const row of historyResult.results as PlayerMatchResultRow[]) {
+      const existing = historyByPlayer.get(row.player_id) ?? [];
+      existing.push(row);
+      historyByPlayer.set(row.player_id, existing);
+    }
 
     return json(
-      result.results.map((row) => {
+      (statsResult.results as PlayerStatsRow[]).map((row) => {
         const losses = row.games - row.wins;
+        const radiantLosses = row.radiant_games - row.radiant_wins;
+        const direLosses = row.dire_games - row.dire_wins;
+        const history = historyByPlayer.get(row.id) ?? [];
+        const last10 = computeLastNRecord(history, 10);
+        const winStreak = computeCurrentStreak(history, "win");
+        const lossStreak = computeCurrentStreak(history, "loss");
         const avgKills = row.games ? row.total_kills / row.games : 0;
         const avgDeaths = row.games ? row.total_deaths / row.games : 0;
         const avgAssists = row.games ? row.total_assists / row.games : 0;
@@ -200,6 +238,17 @@ export async function handleStats(
           wins: row.wins,
           losses,
           winPct: computeWinPct(row.wins, row.games),
+          radiantWins: row.radiant_wins,
+          radiantLosses,
+          direWins: row.dire_wins,
+          direLosses,
+          last10Wins: last10.wins,
+          last10Losses: last10.losses,
+          winStreak,
+          lossStreak,
+          totalKills: row.total_kills,
+          totalDeaths: row.total_deaths,
+          totalAssists: row.total_assists,
           avgKills: Math.round(avgKills * 10) / 10,
           avgDeaths: Math.round(avgDeaths * 10) / 10,
           avgAssists: Math.round(avgAssists * 10) / 10,

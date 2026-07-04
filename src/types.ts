@@ -65,6 +65,17 @@ export interface PlayerStats {
   wins: number;
   losses: number;
   winPct: number;
+  radiantWins: number;
+  radiantLosses: number;
+  direWins: number;
+  direLosses: number;
+  last10Wins: number;
+  last10Losses: number;
+  winStreak: number;
+  lossStreak: number;
+  totalKills: number;
+  totalDeaths: number;
+  totalAssists: number;
   avgKills: number;
   avgDeaths: number;
   avgAssists: number;

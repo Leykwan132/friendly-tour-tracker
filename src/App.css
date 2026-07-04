@@ -116,7 +116,7 @@
 .cross-table th,
 .cross-table td {
   border-bottom: 1px solid var(--border);
-  padding: 0.4rem 0.3rem;
+  padding: 0.55rem 0.5rem;
 }
 
 .data-table th,
@@ -149,6 +149,44 @@
 
 .align-right {
   text-align: right;
+}
+
+.compact-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.compact-table {
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.8125rem;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 0.5rem 0.45rem;
+  white-space: nowrap;
+}
+
+.compact-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.compact-table th:first-child,
+.compact-table td:first-child {
+  padding-left: 0.85rem;
+  min-width: 7rem;
+}
+
+.compact-table th:last-child,
+.compact-table td:last-child {
+  padding-right: 0.85rem;
+}
+
+.compact-table td,
+.compact-table th.align-center {
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-cards {
@@ -211,7 +249,7 @@
   position: sticky;
   left: 0;
   z-index: 3;
-  min-width: 72px;
+  min-width: 80px;
 }
 
 .cross-table .empty,
@@ -222,14 +260,14 @@
 
 .cross-table .filled {
   text-align: center;
-  min-width: 68px;
+  min-width: 76px;
   white-space: nowrap;
 }
 
 .cross-table .row-header,
 .cross-table .col-header {
-  min-width: 68px;
-  max-width: 84px;
+  min-width: 76px;
+  max-width: 92px;
 }
 
 .cross-table .row-header {
@@ -242,6 +280,11 @@
 
 .cross-table .col-header {
   vertical-align: bottom;
+  text-align: center;
+}
+
+.cross-table .col-header .header-label {
+  text-align: center;
 }
 
 .header-label {

@@ -16,6 +16,17 @@ interface DashboardPageProps {
   refreshKey: number;
 }
 
+function formatRecord(wins: number, losses: number): string {
+  if (wins === 0 && losses === 0) return "—";
+  return `${wins}-${losses}`;
+}
+
+function formatStreak(winStreak: number, lossStreak: number): string {
+  if (winStreak > 0) return `W${winStreak}`;
+  if (lossStreak > 0) return `L${lossStreak}`;
+  return "—";
+}
+
 export function DashboardPage({ refreshKey }: DashboardPageProps) {
   const [crossTable, setCrossTable] = useState<CrossTableData | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
@@ -135,7 +146,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
       </section>
 
       <section className="dashboard-section">
-        <h3>Player Leaderboard</h3>
+        <h3>Player Stats</h3>
         <SortableTable
           data={playerStats}
           rowKey={(row) => row.id}
@@ -143,29 +154,71 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
           defaultDirection="desc"
           emptyMessage="No player stats yet."
           columns={[
-            { key: "name", label: "Name", sortValue: (row) => row.name },
-            { key: "games", label: "Games", align: "center", sortValue: (row) => row.games },
+            { key: "name", label: "Player", sortValue: (row) => row.name },
             {
-              key: "record",
-              label: "W-L",
+              key: "wins",
+              label: "W",
               align: "center",
               sortValue: (row) => row.wins,
-              render: (row) => `${row.wins}-${row.losses}`,
+            },
+            {
+              key: "losses",
+              label: "L",
+              align: "center",
+              sortValue: (row) => row.losses,
             },
             {
               key: "winPct",
-              label: "Win %",
+              label: "Pct",
               align: "center",
               sortValue: (row) => row.winPct,
-              render: (row) => `${row.winPct}%`,
+              render: (row) => (row.games > 0 ? `${row.winPct}%` : "—"),
             },
             {
-              key: "avgKda",
-              label: "Avg K/D/A",
+              key: "radiant",
+              label: "Rad",
               align: "center",
-              sortValue: (row) => row.kda,
-              render: (row) =>
-                `${row.avgKills}/${row.avgDeaths}/${row.avgAssists}`,
+              sortValue: (row) => row.radiantWins,
+              render: (row) => formatRecord(row.radiantWins, row.radiantLosses),
+            },
+            {
+              key: "dire",
+              label: "Dir",
+              align: "center",
+              sortValue: (row) => row.direWins,
+              render: (row) => formatRecord(row.direWins, row.direLosses),
+            },
+            {
+              key: "last10",
+              label: "L10",
+              align: "center",
+              sortValue: (row) => row.last10Wins,
+              render: (row) => formatRecord(row.last10Wins, row.last10Losses),
+            },
+            {
+              key: "streak",
+              label: "Strk",
+              align: "center",
+              sortValue: (row) => row.winStreak || row.lossStreak,
+              render: (row) => formatStreak(row.winStreak, row.lossStreak),
+            },
+            {
+              key: "totalKills",
+              label: "K",
+              align: "center",
+              sortValue: (row) => row.totalKills,
+            },
+            {
+              key: "totalDeaths",
+              label: "D",
+              align: "center",
+              sortValue: (row) => row.totalDeaths,
+            },
+            {
+              key: "totalAssists",
+              label: "A",
+              align: "center",
+              sortValue: (row) => row.totalAssists,
             },
             {
               key: "kda",
