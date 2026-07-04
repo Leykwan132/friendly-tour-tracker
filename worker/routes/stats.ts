@@ -162,7 +162,7 @@ export async function handleStats(
          FROM match_participants p1
          JOIN match_participants p2
            ON p1.match_id = p2.match_id
-          AND p1.side = p2.side
+          AND p1.side != p2.side
           AND p1.player_id != p2.player_id
          JOIN matches m ON m.id = p1.match_id
          GROUP BY p1.player_id, p2.player_id`,

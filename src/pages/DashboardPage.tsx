@@ -141,7 +141,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
       )}
 
       <section className="dashboard-section">
-        <h3>Teammate Cross-Table</h3>
+        <h3>Head-to-Head</h3>
         {crossTable && <CrossTable data={crossTable} />}
       </section>
 

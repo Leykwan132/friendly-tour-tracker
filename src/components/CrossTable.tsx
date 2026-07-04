@@ -15,7 +15,7 @@ export function CrossTable({ data }: CrossTableProps) {
   }, [data.cells]);
 
   if (data.players.length === 0) {
-    return <p className="empty-message">Add players and matches to see the cross-table.</p>;
+    return <p className="empty-message">Add players and matches to see head-to-head records.</p>;
   }
 
   return (
