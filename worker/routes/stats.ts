@@ -405,7 +405,7 @@ export async function handleStats(
       highestWinRateHeroResult,
       mostKillsPlayerResult,
       mostAssistsPlayerResult,
-      bestPairResult,
+      mostWinsPairResult,
       playerKdaResult,
     ] = await db.batch([
       db.prepare("SELECT COUNT(*) AS count FROM matches"),
@@ -465,7 +465,7 @@ export async function handleStats(
          JOIN players pb ON pb.id = p2.player_id
          JOIN matches m ON m.id = p1.match_id
          GROUP BY p1.player_id, p2.player_id
-         ORDER BY wins * 1.0 / games DESC, games DESC
+         ORDER BY wins DESC, games DESC, pa.name COLLATE NOCASE ASC, pb.name COLLATE NOCASE ASC
          LIMIT 1`,
       ),
       db.prepare(
@@ -506,7 +506,7 @@ export async function handleStats(
     const mostAssistsPlayer = mostAssistsPlayerResult.results[0] as
       | { name: string; assists: number }
       | undefined;
-    const bestPair = bestPairResult.results[0] as
+    const mostWinsPair = mostWinsPairResult.results[0] as
       | { player_a_name: string; player_b_name: string; games: number; wins: number }
       | undefined;
 
@@ -531,13 +531,13 @@ export async function handleStats(
       mostAssistsPlayer: mostAssistsPlayer
         ? { name: mostAssistsPlayer.name, assists: mostAssistsPlayer.assists }
         : null,
-      bestPair: bestPair
+      mostWinsPair: mostWinsPair
         ? {
-            playerAName: bestPair.player_a_name,
-            playerBName: bestPair.player_b_name,
-            games: bestPair.games,
-            wins: bestPair.wins,
-            winPct: computeWinPct(bestPair.wins, bestPair.games),
+            playerAName: mostWinsPair.player_a_name,
+            playerBName: mostWinsPair.player_b_name,
+            games: mostWinsPair.games,
+            wins: mostWinsPair.wins,
+            winPct: computeWinPct(mostWinsPair.wins, mostWinsPair.games),
           }
         : null,
     });

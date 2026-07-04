@@ -130,10 +130,10 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
             </span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Best Pair</span>
+            <span className="stat-label">Most Wins as Pair</span>
             <span className="stat-value">
-              {summary.bestPair
-                ? `${summary.bestPair.playerAName} & ${summary.bestPair.playerBName} (${summary.bestPair.winPct}%, ${summary.bestPair.wins}W)`
+              {summary.mostWinsPair
+                ? `${summary.mostWinsPair.playerAName} & ${summary.mostWinsPair.playerBName} (${summary.mostWinsPair.wins}W)`
                 : "—"}
             </span>
           </div>

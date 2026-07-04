@@ -120,7 +120,7 @@ export interface SummaryStats {
   highestWinRateHero: { hero: string; games: number; wins: number; winPct: number } | null;
   mostKillsPlayer: { name: string; kills: number } | null;
   mostAssistsPlayer: { name: string; assists: number } | null;
-  bestPair: {
+  mostWinsPair: {
     playerAName: string;
     playerBName: string;
     games: number;
