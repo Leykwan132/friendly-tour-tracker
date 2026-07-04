@@ -86,11 +86,14 @@ export function PlayersPage({ refreshKey, onDataChange }: PlayersPageProps) {
 
   return (
     <div className="page">
-      <div className="page-header">
+      <div className="page-header row-header">
         <h2>Players</h2>
+        <Button type="submit" form="add-player-form">
+          Add Player
+        </Button>
       </div>
 
-      <form className="inline-form" onSubmit={handleCreate}>
+      <form id="add-player-form" className="inline-form" onSubmit={handleCreate}>
         <input
           type="text"
           placeholder="Player name"
@@ -98,7 +101,6 @@ export function PlayersPage({ refreshKey, onDataChange }: PlayersPageProps) {
           onChange={(e) => setNewName(e.target.value)}
           required
         />
-        <Button type="submit">Add Player</Button>
       </form>
 
       {actionError && <p className="error-message">{actionError}</p>}

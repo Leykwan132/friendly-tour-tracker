@@ -69,13 +69,13 @@ export function DashboardPageSkeleton() {
 export function PlayersPageSkeleton() {
   return (
     <div className="page">
-      <div className="page-header">
+      <div className="page-header row-header">
         <PageTitleSkeleton />
+        <Skeleton className="h-9 w-[100px] rounded-md" />
       </div>
 
       <div className="inline-form">
         <Skeleton className="h-9 w-48 rounded-md" />
-        <Skeleton className="h-9 w-[100px] rounded-md" />
       </div>
 
       <TableSkeleton rows={6} cols={5} />
