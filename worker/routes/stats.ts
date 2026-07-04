@@ -71,6 +71,28 @@ function pickBestHero(rows: PlayerHeroRow[]): PlayerHeroRow | null {
   });
 }
 
+function pickHighestWinRateHero(rows: HeroStatsRow[]): HeroStatsRow | null {
+  const qualified = rows.filter((row) => row.games >= 2);
+  if (qualified.length === 0) return null;
+
+  return qualified.reduce((best, row) => {
+    const rowWinPct = row.wins / row.games;
+    const bestWinPct = best.wins / best.games;
+
+    if (rowWinPct > bestWinPct) return row;
+    if (rowWinPct < bestWinPct) return best;
+
+    const rowKda = computeKda(row.total_kills, row.total_deaths, row.total_assists);
+    const bestKda = computeKda(best.total_kills, best.total_deaths, best.total_assists);
+
+    if (rowKda > bestKda) return row;
+    if (rowKda < bestKda) return best;
+    if (row.games > best.games) return row;
+    if (row.games < best.games) return best;
+    return row.hero.localeCompare(best.hero) < 0 ? row : best;
+  });
+}
+
 interface PlayerMatchResultRow {
   player_id: number;
   player_name: string;
@@ -406,13 +428,13 @@ export async function handleStats(
       ),
       db.prepare(
         `SELECT mp.hero, COUNT(mp.id) AS games,
-                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins
+                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins,
+                SUM(mp.kills) AS total_kills,
+                SUM(mp.deaths) AS total_deaths,
+                SUM(mp.assists) AS total_assists
          FROM match_participants mp
          JOIN matches m ON m.id = mp.match_id
-         GROUP BY mp.hero
-         HAVING games >= 2
-         ORDER BY wins * 1.0 / games DESC, games DESC, mp.hero COLLATE NOCASE ASC
-         LIMIT 1`,
+         GROUP BY mp.hero`,
       ),
       db.prepare(
         `SELECT p.name, SUM(mp.kills) AS kills
@@ -475,9 +497,9 @@ export async function handleStats(
     const mostPickedHero = mostPickedHeroResult.results[0] as
       | { hero: string; games: number; wins: number }
       | undefined;
-    const highestWinRateHero = highestWinRateHeroResult.results[0] as
-      | { hero: string; games: number; wins: number }
-      | undefined;
+    const highestWinRateHero = pickHighestWinRateHero(
+      highestWinRateHeroResult.results as HeroStatsRow[],
+    );
     const mostKillsPlayer = mostKillsPlayerResult.results[0] as
       | { name: string; kills: number }
       | undefined;
