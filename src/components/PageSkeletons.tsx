@@ -56,7 +56,7 @@ export function DashboardPageSkeleton() {
         </div>
       </section>
 
-      {["Player Stats", "Best Hero by Player", "Teammate Pairs", "Hero Stats"].map((section) => (
+      {["Player Stats", "Best Hero by Player", "Best Teammate Pairing", "Hero Stats"].map((section) => (
         <section key={section} className="dashboard-section">
           <Skeleton className="h-[20px] w-[140px] rounded-full" />
           <TableSkeleton rows={5} cols={5} />

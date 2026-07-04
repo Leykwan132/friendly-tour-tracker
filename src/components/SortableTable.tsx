@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export type SortDirection = "asc" | "desc";
 
@@ -18,6 +19,7 @@ interface SortableTableProps<T> {
   emptyMessage?: string;
   rowKey: (row: T) => string | number;
   compact?: boolean;
+  initialLimit?: number;
 }
 
 export function SortableTable<T>({
@@ -28,9 +30,11 @@ export function SortableTable<T>({
   emptyMessage = "No data yet.",
   rowKey,
   compact = false,
+  initialLimit,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultDirection);
+  const [showAll, setShowAll] = useState(false);
 
   const sortedData = useMemo(() => {
     const column = columns.find((col) => col.key === sortKey);
@@ -51,6 +55,15 @@ export function SortableTable<T>({
     });
   }, [columns, data, sortDirection, sortKey]);
 
+  const visibleData = useMemo(() => {
+    if (!initialLimit || showAll || sortedData.length <= initialLimit) {
+      return sortedData;
+    }
+    return sortedData.slice(0, initialLimit);
+  }, [initialLimit, showAll, sortedData]);
+
+  const canExpand = initialLimit !== undefined && sortedData.length > initialLimit;
+
   function toggleSort(key: string) {
     if (sortKey === key) {
       setSortDirection((dir) => (dir === "asc" ? "desc" : "asc"));
@@ -65,44 +78,58 @@ export function SortableTable<T>({
   }
 
   return (
-    <div className={compact ? "table-scroll compact-table-scroll" : "table-scroll"}>
-      <table className={compact ? "data-table compact-table" : "data-table"}>
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                className={column.align ? `align-${column.align}` : undefined}
-              >
-                <button
-                  type="button"
-                  className={`sort-button${sortKey === column.key ? " active" : ""}`}
-                  onClick={() => toggleSort(column.key)}
-                >
-                  {column.label}
-                  {sortKey === column.key ? (sortDirection === "asc" ? " ↑" : " ↓") : ""}
-                </button>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sortedData.map((row) => (
-            <tr key={rowKey(row)}>
+    <div className="sortable-table">
+      <div className={compact ? "table-scroll compact-table-scroll" : "table-scroll"}>
+        <table className={compact ? "data-table compact-table" : "data-table"}>
+          <thead>
+            <tr>
               {columns.map((column) => (
-                <td
+                <th
                   key={column.key}
                   className={column.align ? `align-${column.align}` : undefined}
                 >
-                  {column.render
-                    ? column.render(row)
-                    : String((row as Record<string, unknown>)[column.key] ?? "")}
-                </td>
+                  <button
+                    type="button"
+                    className={`sort-button${sortKey === column.key ? " active" : ""}`}
+                    onClick={() => toggleSort(column.key)}
+                  >
+                    {column.label}
+                    {sortKey === column.key ? (sortDirection === "asc" ? " ↑" : " ↓") : ""}
+                  </button>
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visibleData.map((row) => (
+              <tr key={rowKey(row)}>
+                {columns.map((column) => (
+                  <td
+                    key={column.key}
+                    className={column.align ? `align-${column.align}` : undefined}
+                  >
+                    {column.render
+                      ? column.render(row)
+                      : String((row as Record<string, unknown>)[column.key] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {canExpand && (
+        <div className="table-expand-actions">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAll((expanded) => !expanded)}
+          >
+            {showAll ? "Show less" : `Show all (${sortedData.length})`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

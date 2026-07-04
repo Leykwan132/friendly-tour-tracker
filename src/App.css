@@ -130,6 +130,17 @@
   background: color-mix(in oklch, var(--neutral-30), var(--foreground) 3%);
 }
 
+.sortable-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.table-expand-actions {
+  display: flex;
+  justify-content: center;
+}
+
 .sort-button {
   border: none;
   background: transparent;

@@ -275,12 +275,13 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
       </section>
 
       <section className="dashboard-section">
-        <h3>Teammate Pairs</h3>
+        <h3>Best Teammate Pairing</h3>
         <SortableTable
           data={teammateStats}
           rowKey={(row) => `${row.playerAId}-${row.playerBId}`}
-          defaultSortKey="winPct"
+          defaultSortKey="record"
           defaultDirection="desc"
+          initialLimit={10}
           emptyMessage="No teammate pairs yet."
           columns={[
             {
@@ -319,6 +320,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
           rowKey={(row) => row.hero}
           defaultSortKey="games"
           defaultDirection="desc"
+          initialLimit={10}
           emptyMessage="No hero stats yet."
           columns={[
             { key: "hero", label: "Hero", sortValue: (row) => row.hero },
