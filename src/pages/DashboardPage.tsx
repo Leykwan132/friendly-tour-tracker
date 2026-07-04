@@ -1,0 +1,266 @@
+import { useCallback, useEffect, useState } from "react";
+import { api } from "../api/client";
+import { CrossTable } from "../components/CrossTable";
+import { DashboardPageSkeleton } from "../components/PageSkeletons";
+import { SortableTable } from "../components/SortableTable";
+import type {
+  CrossTableData,
+  HeroStats,
+  PlayerBestHeroStats,
+  PlayerStats,
+  SummaryStats,
+  TeammateStats,
+} from "../types";
+
+interface DashboardPageProps {
+  refreshKey: number;
+}
+
+export function DashboardPage({ refreshKey }: DashboardPageProps) {
+  const [crossTable, setCrossTable] = useState<CrossTableData | null>(null);
+  const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
+  const [heroStats, setHeroStats] = useState<HeroStats[]>([]);
+  const [teammateStats, setTeammateStats] = useState<TeammateStats[]>([]);
+  const [playerBestHeroes, setPlayerBestHeroes] = useState<PlayerBestHeroStats[]>([]);
+  const [summary, setSummary] = useState<SummaryStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [cross, players, heroes, teammates, bestHeroes, summaryData] = await Promise.all([
+        api.getCrossTable(),
+        api.getPlayerStats(),
+        api.getHeroStats(),
+        api.getTeammateStats(),
+        api.getPlayerBestHeroes(),
+        api.getSummary(),
+      ]);
+      setCrossTable(cross);
+      setPlayerStats(players);
+      setHeroStats(heroes);
+      setTeammateStats(teammates);
+      setPlayerBestHeroes(bestHeroes);
+      setSummary(summaryData);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshKey]);
+
+  if (loading) return <DashboardPageSkeleton />;
+  if (error) return <p className="error-message">{error}</p>;
+
+  return (
+    <div className="page dashboard-page">
+      <div className="page-header">
+        <h2>Dashboard</h2>
+      </div>
+
+      {summary && (
+        <div className="stat-cards">
+          <div className="stat-card">
+            <span className="stat-label">Total Matches</span>
+            <span className="stat-value">{summary.totalMatches}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Most Games</span>
+            <span className="stat-value">
+              {summary.mostGamesPlayer
+                ? `${summary.mostGamesPlayer.name} (${summary.mostGamesPlayer.games})`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Best Hero (2+ games)</span>
+            <span className="stat-value">
+              {summary.bestHero
+                ? `${summary.bestHero.hero} (${summary.bestHero.winPct}%)`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Top Win Rate (3+ games)</span>
+            <span className="stat-value">
+              {summary.topWinRatePlayer
+                ? `${summary.topWinRatePlayer.name} (${summary.topWinRatePlayer.winPct}%)`
+                : "—"}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <section className="dashboard-section">
+        <h3>Teammate Cross-Table</h3>
+        {crossTable && <CrossTable data={crossTable} />}
+      </section>
+
+      <section className="dashboard-section">
+        <h3>Player Leaderboard</h3>
+        <SortableTable
+          data={playerStats}
+          rowKey={(row) => row.id}
+          defaultSortKey="winPct"
+          defaultDirection="desc"
+          emptyMessage="No player stats yet."
+          columns={[
+            { key: "name", label: "Name", sortValue: (row) => row.name },
+            { key: "games", label: "Games", align: "center", sortValue: (row) => row.games },
+            {
+              key: "record",
+              label: "W-L",
+              align: "center",
+              sortValue: (row) => row.wins,
+              render: (row) => `${row.wins}-${row.losses}`,
+            },
+            {
+              key: "winPct",
+              label: "Win %",
+              align: "center",
+              sortValue: (row) => row.winPct,
+              render: (row) => `${row.winPct}%`,
+            },
+            {
+              key: "avgKda",
+              label: "Avg K/D/A",
+              align: "center",
+              sortValue: (row) => row.kda,
+              render: (row) =>
+                `${row.avgKills}/${row.avgDeaths}/${row.avgAssists}`,
+            },
+            {
+              key: "kda",
+              label: "KDA",
+              align: "center",
+              sortValue: (row) => row.kda,
+            },
+          ]}
+        />
+      </section>
+
+      <section className="dashboard-section">
+        <h3>Best Hero by Player</h3>
+        <SortableTable
+          data={playerBestHeroes}
+          rowKey={(row) => row.playerId}
+          defaultSortKey="winPct"
+          defaultDirection="desc"
+          emptyMessage="No player hero stats yet."
+          columns={[
+            {
+              key: "playerName",
+              label: "Player",
+              sortValue: (row) => row.playerName,
+            },
+            {
+              key: "hero",
+              label: "Best Hero",
+              sortValue: (row) => row.hero ?? "",
+              render: (row) => row.hero ?? "—",
+            },
+            {
+              key: "games",
+              label: "Games",
+              align: "center",
+              sortValue: (row) => row.games,
+            },
+            {
+              key: "record",
+              label: "W-L",
+              align: "center",
+              sortValue: (row) => row.wins,
+              render: (row) => (row.hero ? `${row.wins}-${row.losses}` : "—"),
+            },
+            {
+              key: "winPct",
+              label: "Win %",
+              align: "center",
+              sortValue: (row) => row.winPct ?? -1,
+              render: (row) => (row.winPct === null ? "—" : `${row.winPct}%`),
+            },
+          ]}
+        />
+      </section>
+
+      <section className="dashboard-section">
+        <h3>Teammate Pairs</h3>
+        <SortableTable
+          data={teammateStats}
+          rowKey={(row) => `${row.playerAId}-${row.playerBId}`}
+          defaultSortKey="winPct"
+          defaultDirection="desc"
+          emptyMessage="No teammate pairs yet."
+          columns={[
+            {
+              key: "playerAName",
+              label: "Player A",
+              sortValue: (row) => row.playerAName,
+            },
+            {
+              key: "playerBName",
+              label: "Player B",
+              sortValue: (row) => row.playerBName,
+            },
+            { key: "games", label: "Games", align: "center", sortValue: (row) => row.games },
+            {
+              key: "record",
+              label: "W-L",
+              align: "center",
+              sortValue: (row) => row.wins,
+              render: (row) => `${row.wins}-${row.losses}`,
+            },
+            {
+              key: "winPct",
+              label: "Win %",
+              align: "center",
+              sortValue: (row) => row.winPct,
+              render: (row) => `${row.winPct}%`,
+            },
+          ]}
+        />
+      </section>
+
+      <section className="dashboard-section">
+        <h3>Hero Stats</h3>
+        <SortableTable
+          data={heroStats}
+          rowKey={(row) => row.hero}
+          defaultSortKey="games"
+          defaultDirection="desc"
+          emptyMessage="No hero stats yet."
+          columns={[
+            { key: "hero", label: "Hero", sortValue: (row) => row.hero },
+            { key: "games", label: "Games", align: "center", sortValue: (row) => row.games },
+            {
+              key: "record",
+              label: "W-L",
+              align: "center",
+              sortValue: (row) => row.wins,
+              render: (row) => `${row.wins}-${row.losses}`,
+            },
+            {
+              key: "winPct",
+              label: "Win %",
+              align: "center",
+              sortValue: (row) => row.winPct,
+              render: (row) => `${row.winPct}%`,
+            },
+            {
+              key: "avgKda",
+              label: "Avg KDA",
+              align: "center",
+              sortValue: (row) => row.avgKda,
+            },
+          ]}
+        />
+      </section>
+    </div>
+  );
+}

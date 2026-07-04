@@ -16,6 +16,15 @@
 	"upload_source_maps": true,
 	"compatibility_flags": [
 		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "prod_d1_dota2",
+			"database_name": "prod-d1-dota2",
+			"database_id": "c7142aac-2c0d-4131-b3a1-077fd3a1e3b6",
+			"migrations_dir": "migrations",
+			"remote": true
+		}
 	]
 	/**
 	 * Smart Placement
