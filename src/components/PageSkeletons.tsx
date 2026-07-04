@@ -33,7 +33,7 @@ export function DashboardPageSkeleton() {
       </div>
 
       <div className="stat-cards">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="stat-card gap-2">
             <Skeleton className="h-[20px] w-[100px] rounded-full" />
             <Skeleton className="h-[20px] w-[60px] rounded-full" />

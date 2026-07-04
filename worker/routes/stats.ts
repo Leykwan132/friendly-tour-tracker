@@ -67,6 +67,64 @@ function pickBestHero(rows: PlayerHeroRow[]): PlayerHeroRow | null {
   });
 }
 
+interface PlayerMatchResultRow {
+  player_id: number;
+  player_name: string;
+  won: number;
+}
+
+function computeCurrentStreak(results: PlayerMatchResultRow[], type: "win" | "loss"): number {
+  if (results.length === 0) return 0;
+
+  const mostRecentWin = results[0].won === 1;
+  if (type === "win" && !mostRecentWin) return 0;
+  if (type === "loss" && mostRecentWin) return 0;
+
+  let streak = 0;
+  for (const result of results) {
+    const isWin = result.won === 1;
+    if (type === "win") {
+      if (!isWin) break;
+      streak++;
+      continue;
+    }
+
+    if (isWin) break;
+    streak++;
+  }
+
+  return streak;
+}
+
+function pickLongestStreak(
+  streaks: { name: string; streak: number }[],
+): { name: string; streak: number } | null {
+  return streaks.reduce<{ name: string; streak: number } | null>((best, current) => {
+    if (current.streak <= 0) return best;
+    if (!best) return current;
+    if (current.streak > best.streak) return current;
+    if (current.streak < best.streak) return best;
+    return current.name.localeCompare(best.name) < 0 ? current : best;
+  }, null);
+}
+
+interface PlayerKdaRow {
+  name: string;
+  total_kills: number;
+  total_deaths: number;
+  total_assists: number;
+}
+
+function pickHighestKdaPlayer(rows: PlayerKdaRow[]): { name: string; kda: number } | null {
+  return rows.reduce<{ name: string; kda: number } | null>((best, row) => {
+    const kda = Math.round(computeKda(row.total_kills, row.total_deaths, row.total_assists) * 100) / 100;
+    if (!best) return { name: row.name, kda };
+    if (kda > best.kda) return { name: row.name, kda };
+    if (kda < best.kda) return best;
+    return row.name.localeCompare(best.name) < 0 ? { name: row.name, kda } : best;
+  }, null);
+}
+
 export async function handleStats(
   request: Request,
   env: Env,
@@ -269,16 +327,32 @@ export async function handleStats(
   }
 
   if (pathname === "/api/stats/summary") {
-    const [matchCount, mostGamesResult, bestHeroResult, topPlayerResult] = await db.batch([
+    const [
+      matchCount,
+      matchResultsResult,
+      mostPickedHeroResult,
+      highestWinRateHeroResult,
+      mostKillsPlayerResult,
+      mostAssistsPlayerResult,
+      bestPairResult,
+      playerKdaResult,
+    ] = await db.batch([
       db.prepare("SELECT COUNT(*) AS count FROM matches"),
       db.prepare(
-        `SELECT p.name, COUNT(mp.id) AS games,
-                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins
-         FROM players p
-         JOIN match_participants mp ON mp.player_id = p.id
+        `SELECT p.id AS player_id, p.name AS player_name,
+                CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END AS won
+         FROM match_participants mp
          JOIN matches m ON m.id = mp.match_id
-         GROUP BY p.id
-         ORDER BY games DESC
+         JOIN players p ON p.id = mp.player_id
+         ORDER BY p.id, m.played_at DESC, m.id DESC`,
+      ),
+      db.prepare(
+        `SELECT mp.hero, COUNT(mp.id) AS games,
+                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins
+         FROM match_participants mp
+         JOIN matches m ON m.id = mp.match_id
+         GROUP BY mp.hero
+         ORDER BY games DESC, mp.hero COLLATE NOCASE ASC
          LIMIT 1`,
       ),
       db.prepare(
@@ -288,50 +362,111 @@ export async function handleStats(
          JOIN matches m ON m.id = mp.match_id
          GROUP BY mp.hero
          HAVING games >= 2
+         ORDER BY wins * 1.0 / games DESC, games DESC, mp.hero COLLATE NOCASE ASC
+         LIMIT 1`,
+      ),
+      db.prepare(
+        `SELECT p.name, SUM(mp.kills) AS kills
+         FROM players p
+         JOIN match_participants mp ON mp.player_id = p.id
+         GROUP BY p.id
+         ORDER BY kills DESC, p.name COLLATE NOCASE ASC
+         LIMIT 1`,
+      ),
+      db.prepare(
+        `SELECT p.name, SUM(mp.assists) AS assists
+         FROM players p
+         JOIN match_participants mp ON mp.player_id = p.id
+         GROUP BY p.id
+         ORDER BY assists DESC, p.name COLLATE NOCASE ASC
+         LIMIT 1`,
+      ),
+      db.prepare(
+        `SELECT pa.name AS player_a_name, pb.name AS player_b_name,
+                COUNT(DISTINCT p1.match_id) AS games,
+                SUM(CASE WHEN p1.side = m.winner_side THEN 1 ELSE 0 END) AS wins
+         FROM match_participants p1
+         JOIN match_participants p2
+           ON p1.match_id = p2.match_id
+          AND p1.side = p2.side
+          AND p1.player_id < p2.player_id
+         JOIN players pa ON pa.id = p1.player_id
+         JOIN players pb ON pb.id = p2.player_id
+         JOIN matches m ON m.id = p1.match_id
+         GROUP BY p1.player_id, p2.player_id
          ORDER BY wins * 1.0 / games DESC, games DESC
          LIMIT 1`,
       ),
       db.prepare(
-        `SELECT p.name, COUNT(mp.id) AS games,
-                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins
+        `SELECT p.name,
+                SUM(mp.kills) AS total_kills,
+                SUM(mp.deaths) AS total_deaths,
+                SUM(mp.assists) AS total_assists
          FROM players p
          JOIN match_participants mp ON mp.player_id = p.id
-         JOIN matches m ON m.id = mp.match_id
-         GROUP BY p.id
-         HAVING games >= 3
-         ORDER BY wins * 1.0 / games DESC, games DESC
-         LIMIT 1`,
+         GROUP BY p.id`,
       ),
     ]);
 
+    const resultsByPlayer = new Map<number, PlayerMatchResultRow[]>();
+    for (const row of matchResultsResult.results as PlayerMatchResultRow[]) {
+      const existing = resultsByPlayer.get(row.player_id) ?? [];
+      existing.push(row);
+      resultsByPlayer.set(row.player_id, existing);
+    }
+
+    const winStreaks: { name: string; streak: number }[] = [];
+
+    for (const results of resultsByPlayer.values()) {
+      const name = results[0]?.player_name ?? "";
+      winStreaks.push({ name, streak: computeCurrentStreak(results, "win") });
+    }
+
     const totalMatches = (matchCount.results[0] as { count: number }).count;
-    const mostGames = mostGamesResult.results[0] as
-      | { name: string; games: number; wins: number }
-      | undefined;
-    const bestHero = bestHeroResult.results[0] as
+    const mostPickedHero = mostPickedHeroResult.results[0] as
       | { hero: string; games: number; wins: number }
       | undefined;
-    const topPlayer = topPlayerResult.results[0] as
-      | { name: string; games: number; wins: number }
+    const highestWinRateHero = highestWinRateHeroResult.results[0] as
+      | { hero: string; games: number; wins: number }
+      | undefined;
+    const mostKillsPlayer = mostKillsPlayerResult.results[0] as
+      | { name: string; kills: number }
+      | undefined;
+    const mostAssistsPlayer = mostAssistsPlayerResult.results[0] as
+      | { name: string; assists: number }
+      | undefined;
+    const bestPair = bestPairResult.results[0] as
+      | { player_a_name: string; player_b_name: string; games: number; wins: number }
       | undefined;
 
     return json({
       totalMatches,
-      mostGamesPlayer: mostGames
-        ? { name: mostGames.name, games: mostGames.games }
+      longestWinStreak: pickLongestStreak(winStreaks),
+      highestKdaPlayer: pickHighestKdaPlayer(playerKdaResult.results as PlayerKdaRow[]),
+      mostPickedHero: mostPickedHero
+        ? { hero: mostPickedHero.hero, games: mostPickedHero.games }
         : null,
-      bestHero: bestHero
+      highestWinRateHero: highestWinRateHero
         ? {
-            hero: bestHero.hero,
-            games: bestHero.games,
-            winPct: computeWinPct(bestHero.wins, bestHero.games),
+            hero: highestWinRateHero.hero,
+            games: highestWinRateHero.games,
+            wins: highestWinRateHero.wins,
+            winPct: computeWinPct(highestWinRateHero.wins, highestWinRateHero.games),
           }
         : null,
-      topWinRatePlayer: topPlayer
+      mostKillsPlayer: mostKillsPlayer
+        ? { name: mostKillsPlayer.name, kills: mostKillsPlayer.kills }
+        : null,
+      mostAssistsPlayer: mostAssistsPlayer
+        ? { name: mostAssistsPlayer.name, assists: mostAssistsPlayer.assists }
+        : null,
+      bestPair: bestPair
         ? {
-            name: topPlayer.name,
-            games: topPlayer.games,
-            winPct: computeWinPct(topPlayer.wins, topPlayer.games),
+            playerAName: bestPair.player_a_name,
+            playerBName: bestPair.player_b_name,
+            games: bestPair.games,
+            wins: bestPair.wins,
+            winPct: computeWinPct(bestPair.wins, bestPair.games),
           }
         : null,
     });

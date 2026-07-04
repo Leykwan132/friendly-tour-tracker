@@ -71,26 +71,58 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
             <span className="stat-value">{summary.totalMatches}</span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Most Games</span>
+            <span className="stat-label">Win Streak</span>
             <span className="stat-value">
-              {summary.mostGamesPlayer
-                ? `${summary.mostGamesPlayer.name} (${summary.mostGamesPlayer.games})`
+              {summary.longestWinStreak
+                ? `${summary.longestWinStreak.name} (${summary.longestWinStreak.streak})`
                 : "—"}
             </span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Best Hero (2+ games)</span>
+            <span className="stat-label">Highest KDA</span>
             <span className="stat-value">
-              {summary.bestHero
-                ? `${summary.bestHero.hero} (${summary.bestHero.winPct}%)`
+              {summary.highestKdaPlayer
+                ? `${summary.highestKdaPlayer.name} (${summary.highestKdaPlayer.kda})`
                 : "—"}
             </span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Top Win Rate (3+ games)</span>
+            <span className="stat-label">Most Picked Hero</span>
             <span className="stat-value">
-              {summary.topWinRatePlayer
-                ? `${summary.topWinRatePlayer.name} (${summary.topWinRatePlayer.winPct}%)`
+              {summary.mostPickedHero
+                ? `${summary.mostPickedHero.hero} (${summary.mostPickedHero.games})`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Highest Win Rate Hero</span>
+            <span className="stat-value">
+              {summary.highestWinRateHero
+                ? `${summary.highestWinRateHero.hero} (${summary.highestWinRateHero.winPct}%, ${summary.highestWinRateHero.wins}W)`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Most Kills</span>
+            <span className="stat-value">
+              {summary.mostKillsPlayer
+                ? `${summary.mostKillsPlayer.name} (${summary.mostKillsPlayer.kills})`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Most Assists</span>
+            <span className="stat-value">
+              {summary.mostAssistsPlayer
+                ? `${summary.mostAssistsPlayer.name} (${summary.mostAssistsPlayer.assists})`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Best Pair</span>
+            <span className="stat-value">
+              {summary.bestPair
+                ? `${summary.bestPair.playerAName} & ${summary.bestPair.playerBName} (${summary.bestPair.winPct}%, ${summary.bestPair.wins}W)`
                 : "—"}
             </span>
           </div>

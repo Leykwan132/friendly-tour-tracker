@@ -103,9 +103,19 @@ export interface PlayerBestHeroStats {
 
 export interface SummaryStats {
   totalMatches: number;
-  mostGamesPlayer: { name: string; games: number } | null;
-  bestHero: { hero: string; games: number; winPct: number } | null;
-  topWinRatePlayer: { name: string; games: number; winPct: number } | null;
+  longestWinStreak: { name: string; streak: number } | null;
+  highestKdaPlayer: { name: string; kda: number } | null;
+  mostPickedHero: { hero: string; games: number } | null;
+  highestWinRateHero: { hero: string; games: number; wins: number; winPct: number } | null;
+  mostKillsPlayer: { name: string; kills: number } | null;
+  mostAssistsPlayer: { name: string; assists: number } | null;
+  bestPair: {
+    playerAName: string;
+    playerBName: string;
+    games: number;
+    wins: number;
+    winPct: number;
+  } | null;
 }
 
 export type Tab = "dashboard" | "players" | "matches";
