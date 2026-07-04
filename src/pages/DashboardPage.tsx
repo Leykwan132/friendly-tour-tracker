@@ -56,7 +56,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
       setPlayerBestHeroes(bestHeroes);
       setSummary(summaryData);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load dashboard");
+      setError(e instanceof Error ? e.message : "Failed to load stats");
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
   return (
     <div className="page dashboard-page">
       <div className="page-header">
-        <h2>Dashboard</h2>
+        <h2>Stats</h2>
       </div>
 
       {summary && (

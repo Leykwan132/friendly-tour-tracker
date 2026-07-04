@@ -8,7 +8,7 @@ import type { Tab } from "./types";
 import "./App.css";
 
 const tabs: { id: Tab; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
+  { id: "dashboard", label: "Stats" },
   { id: "players", label: "Players" },
   { id: "matches", label: "Matches" },
 ];
