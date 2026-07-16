@@ -18,6 +18,16 @@ interface DashboardPageProps {
   refreshKey: number;
 }
 
+const BEST_HERO_MODES = [
+  { value: "winPct", label: "Highest Win %" },
+  { value: "wins", label: "Most Wins" },
+  { value: "kda", label: "Highest KDA" },
+  { value: "streak", label: "Best Win Streak" },
+  { value: "games", label: "Most Played" },
+] as const;
+
+type BestHeroMode = (typeof BEST_HERO_MODES)[number]["value"];
+
 function formatRecord(wins: number, losses: number): string {
   if (wins === 0 && losses === 0) return "—";
   return `${wins}-${losses}`;
@@ -36,12 +46,29 @@ function streakSortValue(winStreak: number, lossStreak: number): string {
   return "Z-0000";
 }
 
+function bestHeroDefaultSortKey(mode: BestHeroMode): string {
+  switch (mode) {
+    case "wins":
+      return "record";
+    case "kda":
+      return "avgKda";
+    case "streak":
+      return "streak";
+    case "games":
+      return "games";
+    case "winPct":
+    default:
+      return "winPct";
+  }
+}
+
 export function DashboardPage({ refreshKey }: DashboardPageProps) {
   const [crossTable, setCrossTable] = useState<CrossTableData | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
   const [heroStats, setHeroStats] = useState<HeroStats[]>([]);
   const [teammateStats, setTeammateStats] = useState<TeammateStats[]>([]);
   const [playerBestHeroes, setPlayerBestHeroes] = useState<PlayerBestHeroStats[]>([]);
+  const [bestHeroMode, setBestHeroMode] = useState<BestHeroMode>("winPct");
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [summary, setSummary] = useState<SummaryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,21 +78,18 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
     setLoading(true);
     setError(null);
     try {
-      const [cross, players, heroes, teammates, bestHeroes, matches, summaryData] =
-        await Promise.all([
-          api.getCrossTable(),
-          api.getPlayerStats(),
-          api.getHeroStats(),
-          api.getTeammateStats(),
-          api.getPlayerBestHeroes(),
-          api.getMatches(),
-          api.getSummary(),
-        ]);
+      const [cross, players, heroes, teammates, matches, summaryData] = await Promise.all([
+        api.getCrossTable(),
+        api.getPlayerStats(),
+        api.getHeroStats(),
+        api.getTeammateStats(),
+        api.getMatches(),
+        api.getSummary(),
+      ]);
       setCrossTable(cross);
       setPlayerStats(players);
       setHeroStats(heroes);
       setTeammateStats(teammates);
-      setPlayerBestHeroes(bestHeroes);
       setRecentMatches(matches);
       setSummary(summaryData);
     } catch (e) {
@@ -78,6 +102,24 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBestHeroes() {
+      try {
+        const bestHeroes = await api.getPlayerBestHeroes(bestHeroMode);
+        if (!cancelled) setPlayerBestHeroes(bestHeroes);
+      } catch {
+        // Keep the previous table if a mode switch fails.
+      }
+    }
+
+    void loadBestHeroes();
+    return () => {
+      cancelled = true;
+    };
+  }, [bestHeroMode, refreshKey]);
 
   const latestMatches = useMemo(
     () =>
@@ -250,11 +292,28 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
       </section>
 
       <section className="dashboard-section">
-        <h3>Best Hero by Player</h3>
+        <div className="dashboard-section-header">
+          <h3>Best Hero by Player</h3>
+          <label className="section-filter">
+            <span className="sr-only">Best hero criteria</span>
+            <select
+              value={bestHeroMode}
+              onChange={(e) => setBestHeroMode(e.target.value as BestHeroMode)}
+              aria-label="Best hero criteria"
+            >
+              {BEST_HERO_MODES.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <SortableTable
+          key={bestHeroMode}
           data={playerBestHeroes}
           rowKey={(row) => row.playerId}
-          defaultSortKey="winPct"
+          defaultSortKey={bestHeroDefaultSortKey(bestHeroMode)}
           defaultDirection="desc"
           emptyMessage="No player hero stats yet."
           columns={[

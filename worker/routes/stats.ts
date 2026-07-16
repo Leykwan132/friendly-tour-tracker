@@ -92,30 +92,89 @@ function computeOrderedStreak(
   return streak;
 }
 
-function pickBestHero(rows: PlayerHeroRow[]): PlayerHeroRow | null {
+type BestHeroMode = "winPct" | "wins" | "kda" | "streak" | "games";
+
+const BEST_HERO_MODES = new Set<BestHeroMode>(["winPct", "wins", "kda", "streak", "games"]);
+
+function parseBestHeroMode(value: string | null): BestHeroMode {
+  if (value && BEST_HERO_MODES.has(value as BestHeroMode)) {
+    return value as BestHeroMode;
+  }
+  return "winPct";
+}
+
+function compareBestHero(
+  best: PlayerHeroRow,
+  row: PlayerHeroRow,
+  mode: BestHeroMode,
+): PlayerHeroRow {
+  const rowWinPct = row.wins / row.games;
+  const bestWinPct = best.wins / best.games;
+  const rowKda = computeKda(row.total_kills, row.total_deaths, row.total_assists);
+  const bestKda = computeKda(best.total_kills, best.total_deaths, best.total_assists);
+
+  const metrics: [number, number][] = (() => {
+    switch (mode) {
+      case "wins":
+        return [
+          [row.wins, best.wins],
+          [rowWinPct, bestWinPct],
+          [rowKda, bestKda],
+          [row.games, best.games],
+        ];
+      case "kda":
+        return [
+          [rowKda, bestKda],
+          [rowWinPct, bestWinPct],
+          [row.wins, best.wins],
+          [row.games, best.games],
+        ];
+      case "streak":
+        return [
+          [row.win_streak, best.win_streak],
+          [rowWinPct, bestWinPct],
+          [rowKda, bestKda],
+          [row.games, best.games],
+        ];
+      case "games":
+        return [
+          [row.games, best.games],
+          [rowWinPct, bestWinPct],
+          [rowKda, bestKda],
+          [row.wins, best.wins],
+        ];
+      case "winPct":
+      default:
+        return [
+          [rowWinPct, bestWinPct],
+          [rowKda, bestKda],
+          [row.win_streak, best.win_streak],
+          [row.games, best.games],
+        ];
+    }
+  })();
+
+  for (const [rowValue, bestValue] of metrics) {
+    if (rowValue > bestValue) return row;
+    if (rowValue < bestValue) return best;
+  }
+
+  return row.hero.localeCompare(best.hero) < 0 ? row : best;
+}
+
+function pickBestHero(rows: PlayerHeroRow[], mode: BestHeroMode): PlayerHeroRow | null {
   if (rows.length === 0) return null;
 
-  const qualified = rows.filter((row) => row.games >= 2);
-  const pool = qualified.length > 0 ? qualified : rows;
+  // Most Played can use every sample; other modes prefer 2+ games when available.
+  const pool =
+    mode === "games"
+      ? rows
+      : (() => {
+          const qualified = rows.filter((row) => row.games >= 2);
+          return qualified.length > 0 ? qualified : rows;
+        })();
 
-  return pool.reduce((best, row) => {
-    const rowWinPct = row.wins / row.games;
-    const bestWinPct = best.wins / best.games;
-
-    if (rowWinPct > bestWinPct) return row;
-    if (rowWinPct < bestWinPct) return best;
-
-    const rowKda = computeKda(row.total_kills, row.total_deaths, row.total_assists);
-    const bestKda = computeKda(best.total_kills, best.total_deaths, best.total_assists);
-
-    if (rowKda > bestKda) return row;
-    if (rowKda < bestKda) return best;
-    if (row.win_streak > best.win_streak) return row;
-    if (row.win_streak < best.win_streak) return best;
-    if (row.games > best.games) return row;
-    if (row.games < best.games) return best;
-    return row.hero.localeCompare(best.hero) < 0 ? row : best;
-  });
+  return pool.reduce((best, row) => compareBestHero(best, row, mode));
 }
 
 function pickHighestWinRateHero(rows: HeroStatsRow[]): HeroStatsRow | null {
@@ -427,6 +486,7 @@ export async function handleStats(
   }
 
   if (pathname === "/api/stats/player-best-heroes") {
+    const mode = parseBestHeroMode(new URL(request.url).searchParams.get("mode"));
     const [playersResult, heroStatsResult, heroHistoryResult] = await db.batch([
       db.prepare("SELECT id, name FROM players ORDER BY name COLLATE NOCASE ASC"),
       db.prepare(
@@ -478,7 +538,7 @@ export async function handleStats(
 
     return json(
       (playersResult.results as PlayerRef[]).map((player) => {
-        const bestHero = pickBestHero(heroStatsByPlayer.get(player.id) ?? []);
+        const bestHero = pickBestHero(heroStatsByPlayer.get(player.id) ?? [], mode);
 
         if (!bestHero) {
           return {

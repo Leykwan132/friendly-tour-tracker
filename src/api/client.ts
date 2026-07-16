@@ -71,8 +71,10 @@ export const api = {
   getPlayerStats: () => request<PlayerStats[]>("/api/stats/players"),
   getHeroStats: () => request<HeroStats[]>("/api/stats/heroes"),
   getTeammateStats: () => request<TeammateStats[]>("/api/stats/teammates"),
-  getPlayerBestHeroes: () =>
-    request<PlayerBestHeroStats[]>("/api/stats/player-best-heroes"),
+  getPlayerBestHeroes: (mode?: string) => {
+    const query = mode ? `?mode=${encodeURIComponent(mode)}` : "";
+    return request<PlayerBestHeroStats[]>(`/api/stats/player-best-heroes${query}`);
+  },
   getSummary: () => request<SummaryStats>("/api/stats/summary"),
 };
 
