@@ -588,6 +588,8 @@ export async function handleStats(
       highestWinRateHeroResult,
       mostKillsPlayerResult,
       mostAssistsPlayerResult,
+      mostWinsPlayerResult,
+      mostWinSideResult,
       mostWinsPairResult,
       playerKdaResult,
     ] = await db.batch([
@@ -626,6 +628,23 @@ export async function handleStats(
          JOIN match_participants mp ON mp.player_id = p.id
          GROUP BY p.id
          ORDER BY assists DESC, p.name COLLATE NOCASE ASC
+         LIMIT 1`,
+      ),
+      db.prepare(
+        `SELECT p.name,
+                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins
+         FROM players p
+         JOIN match_participants mp ON mp.player_id = p.id
+         JOIN matches m ON m.id = mp.match_id
+         GROUP BY p.id
+         ORDER BY wins DESC, p.name COLLATE NOCASE ASC
+         LIMIT 1`,
+      ),
+      db.prepare(
+        `SELECT winner_side AS side, COUNT(*) AS wins
+         FROM matches
+         GROUP BY winner_side
+         ORDER BY wins DESC, side ASC
          LIMIT 1`,
       ),
       db.prepare(
@@ -677,6 +696,12 @@ export async function handleStats(
     const mostAssistsPlayer = mostAssistsPlayerResult.results[0] as
       | { name: string; assists: number }
       | undefined;
+    const mostWinsPlayer = mostWinsPlayerResult.results[0] as
+      | { name: string; wins: number }
+      | undefined;
+    const mostWinSide = mostWinSideResult.results[0] as
+      | { side: "radiant" | "dire"; wins: number }
+      | undefined;
     const mostWinsPair = mostWinsPairResult.results[0] as
       | { player_a_name: string; player_b_name: string; games: number; wins: number }
       | undefined;
@@ -701,6 +726,12 @@ export async function handleStats(
         : null,
       mostAssistsPlayer: mostAssistsPlayer
         ? { name: mostAssistsPlayer.name, assists: mostAssistsPlayer.assists }
+        : null,
+      mostWinsPlayer: mostWinsPlayer
+        ? { name: mostWinsPlayer.name, wins: mostWinsPlayer.wins }
+        : null,
+      mostWinSide: mostWinSide
+        ? { side: mostWinSide.side, wins: mostWinSide.wins }
         : null,
       mostWinsPair: mostWinsPair
         ? {

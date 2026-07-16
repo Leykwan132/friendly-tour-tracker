@@ -151,14 +151,34 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
       {summary && (
         <div className="stat-cards">
           <div className="stat-card">
-            <span className="stat-label">Total Matches</span>
-            <span className="stat-value">{summary.totalMatches}</span>
+            <span className="stat-label">Most Wins</span>
+            <span className="stat-value">
+              {summary.mostWinsPlayer
+                ? `${summary.mostWinsPlayer.name} (${summary.mostWinsPlayer.wins}W)`
+                : "—"}
+            </span>
           </div>
           <div className="stat-card">
             <span className="stat-label">Win Streak</span>
             <span className="stat-value">
               {summary.longestWinStreak
                 ? `${summary.longestWinStreak.name} (${summary.longestWinStreak.streak})`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Most Wins as Pair</span>
+            <span className="stat-value">
+              {summary.mostWinsPair
+                ? `${summary.mostWinsPair.playerAName} & ${summary.mostWinsPair.playerBName} (${summary.mostWinsPair.wins}W)`
+                : "—"}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Most Win Side</span>
+            <span className="stat-value">
+              {summary.mostWinSide
+                ? `${summary.mostWinSide.side === "radiant" ? "Radiant" : "Dire"} (${summary.mostWinSide.wins})`
                 : "—"}
             </span>
           </div>
@@ -171,10 +191,10 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
             </span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Most Picked Hero</span>
+            <span className="stat-label">Most Kills</span>
             <span className="stat-value">
-              {summary.mostPickedHero
-                ? `${summary.mostPickedHero.hero} (${summary.mostPickedHero.games})`
+              {summary.mostKillsPlayer
+                ? `${summary.mostKillsPlayer.name} (${summary.mostKillsPlayer.kills})`
                 : "—"}
             </span>
           </div>
@@ -187,26 +207,10 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
             </span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Most Kills</span>
+            <span className="stat-label">Most Picked Hero</span>
             <span className="stat-value">
-              {summary.mostKillsPlayer
-                ? `${summary.mostKillsPlayer.name} (${summary.mostKillsPlayer.kills})`
-                : "—"}
-            </span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Most Assists</span>
-            <span className="stat-value">
-              {summary.mostAssistsPlayer
-                ? `${summary.mostAssistsPlayer.name} (${summary.mostAssistsPlayer.assists})`
-                : "—"}
-            </span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Most Wins as Pair</span>
-            <span className="stat-value">
-              {summary.mostWinsPair
-                ? `${summary.mostWinsPair.playerAName} & ${summary.mostWinsPair.playerBName} (${summary.mostWinsPair.wins}W)`
+              {summary.mostPickedHero
+                ? `${summary.mostPickedHero.hero} (${summary.mostPickedHero.games})`
                 : "—"}
             </span>
           </div>
