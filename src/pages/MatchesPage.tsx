@@ -54,15 +54,21 @@ function parseSide(rows: ParticipantFormRow[]): ParticipantInput[] | string {
 
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index];
+    const hasPlayer = Boolean(row.playerId);
+    const hasHero = Boolean(row.hero.trim());
+
+    // Allow leaving trailing slots empty for smaller games (e.g. 4v4).
+    if (!hasPlayer && !hasHero) continue;
+
     const playerId = Number(row.playerId);
     const kills = Number(row.kills);
     const deaths = Number(row.deaths);
     const assists = Number(row.assists);
 
-    if (!row.playerId || !Number.isInteger(playerId) || playerId <= 0) {
+    if (!hasPlayer || !Number.isInteger(playerId) || playerId <= 0) {
       return `Row ${index + 1}: select a player`;
     }
-    if (!row.hero.trim()) {
+    if (!hasHero) {
       return `Row ${index + 1}: hero is required`;
     }
     if ([kills, deaths, assists].some((v) => !Number.isInteger(v) || v < 0)) {
@@ -76,6 +82,10 @@ function parseSide(rows: ParticipantFormRow[]): ParticipantInput[] | string {
       deaths,
       assists,
     });
+  }
+
+  if (result.length < 1) {
+    return "Add at least 1 player";
   }
 
   return result;
@@ -250,6 +260,11 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
       return;
     }
 
+    if (radiantParsed.length !== direParsed.length) {
+      setActionError("Radiant and Dire must have the same number of players");
+      return;
+    }
+
     const payload: MatchInput = {
       playedAt,
       winnerSide,
@@ -301,9 +316,9 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
         )}
       </div>
 
-      {players.length < 10 && (
+      {players.length < 2 && (
         <p className="warning-message">
-          You need at least 10 players to fill both teams. Currently: {players.length}.
+          You need at least 2 players to create a match. Currently: {players.length}.
         </p>
       )}
 

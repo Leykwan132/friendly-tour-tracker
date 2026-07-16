@@ -40,6 +40,10 @@ export function validateMatchInput(body: unknown): MatchInput | string {
   const direResult = validateParticipants(dire, "dire");
   if (typeof direResult === "string") return direResult;
 
+  if (radiantResult.length !== direResult.length) {
+    return "Radiant and Dire must have the same number of players";
+  }
+
   const allIds = [...radiantResult, ...direResult].map((p) => p.playerId);
   const uniqueIds = new Set(allIds);
   if (uniqueIds.size !== allIds.length) {
@@ -58,8 +62,8 @@ function validateParticipants(
   value: unknown,
   side: Side,
 ): ParticipantInput[] | string {
-  if (!Array.isArray(value) || value.length !== 5) {
-    return `Exactly 5 ${side} players are required`;
+  if (!Array.isArray(value) || value.length < 1 || value.length > 5) {
+    return `${side} must have between 1 and 5 players`;
   }
 
   const result: ParticipantInput[] = [];
