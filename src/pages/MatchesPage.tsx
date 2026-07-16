@@ -21,6 +21,9 @@ interface ParticipantFormRow {
   assists: string;
 }
 
+const TEAM_SIZES = [4, 5] as const;
+type TeamSize = (typeof TEAM_SIZES)[number];
+
 const emptyRow = (): ParticipantFormRow => ({
   playerId: "",
   hero: "",
@@ -29,14 +32,23 @@ const emptyRow = (): ParticipantFormRow => ({
   assists: "0",
 });
 
-const emptySide = (): ParticipantFormRow[] =>
-  Array.from({ length: 5 }, emptyRow);
+const emptySide = (teamSize: TeamSize): ParticipantFormRow[] =>
+  Array.from({ length: teamSize }, emptyRow);
+
+function resizeSide(rows: ParticipantFormRow[], teamSize: TeamSize): ParticipantFormRow[] {
+  if (rows.length === teamSize) return rows;
+  if (rows.length > teamSize) return rows.slice(0, teamSize);
+  return [...rows, ...Array.from({ length: teamSize - rows.length }, emptyRow)];
+}
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function toFormRows(participants: Match["radiant"] | undefined): ParticipantFormRow[] {
+function toFormRows(
+  participants: Match["radiant"] | undefined,
+  teamSize: TeamSize,
+): ParticipantFormRow[] {
   const rows = participants?.map((p) => ({
     playerId: String(p.playerId),
     hero: p.hero,
@@ -45,8 +57,12 @@ function toFormRows(participants: Match["radiant"] | undefined): ParticipantForm
     assists: String(p.assists),
   })) ?? [];
 
-  while (rows.length < 5) rows.push(emptyRow());
-  return rows.slice(0, 5);
+  return resizeSide(rows, teamSize);
+}
+
+function teamSizeFromMatch(match: Match): TeamSize {
+  const size = Math.max(match.radiant?.length ?? 0, match.dire?.length ?? 0);
+  return size <= 4 ? 4 : 5;
 }
 
 function parseSide(rows: ParticipantFormRow[]): ParticipantInput[] | string {
@@ -54,21 +70,15 @@ function parseSide(rows: ParticipantFormRow[]): ParticipantInput[] | string {
 
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index];
-    const hasPlayer = Boolean(row.playerId);
-    const hasHero = Boolean(row.hero.trim());
-
-    // Allow leaving trailing slots empty for smaller games (e.g. 4v4).
-    if (!hasPlayer && !hasHero) continue;
-
     const playerId = Number(row.playerId);
     const kills = Number(row.kills);
     const deaths = Number(row.deaths);
     const assists = Number(row.assists);
 
-    if (!hasPlayer || !Number.isInteger(playerId) || playerId <= 0) {
+    if (!row.playerId || !Number.isInteger(playerId) || playerId <= 0) {
       return `Row ${index + 1}: select a player`;
     }
-    if (!hasHero) {
+    if (!row.hero.trim()) {
       return `Row ${index + 1}: hero is required`;
     }
     if ([kills, deaths, assists].some((v) => !Number.isInteger(v) || v < 0)) {
@@ -82,10 +92,6 @@ function parseSide(rows: ParticipantFormRow[]): ParticipantInput[] | string {
       deaths,
       assists,
     });
-  }
-
-  if (result.length < 1) {
-    return "Add at least 1 player";
   }
 
   return result;
@@ -175,8 +181,9 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [playedAt, setPlayedAt] = useState(todayString());
   const [winnerSide, setWinnerSide] = useState<Side>("radiant");
-  const [radiant, setRadiant] = useState<ParticipantFormRow[]>(emptySide());
-  const [dire, setDire] = useState<ParticipantFormRow[]>(emptySide());
+  const [teamSize, setTeamSize] = useState<TeamSize>(5);
+  const [radiant, setRadiant] = useState<ParticipantFormRow[]>(() => emptySide(5));
+  const [dire, setDire] = useState<ParticipantFormRow[]>(() => emptySide(5));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,8 +214,9 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
     setEditingId(null);
     setPlayedAt(todayString());
     setWinnerSide("radiant");
-    setRadiant(emptySide());
-    setDire(emptySide());
+    setTeamSize(5);
+    setRadiant(emptySide(5));
+    setDire(emptySide(5));
     setActionError(null);
   }
 
@@ -217,15 +225,23 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
     setShowForm(true);
   }
 
+  function changeTeamSize(nextSize: TeamSize) {
+    setTeamSize(nextSize);
+    setRadiant((rows) => resizeSide(rows, nextSize));
+    setDire((rows) => resizeSide(rows, nextSize));
+  }
+
   async function openEditForm(id: number) {
     setActionError(null);
     try {
       const match = await api.getMatch(id);
+      const nextSize = teamSizeFromMatch(match);
       setEditingId(id);
       setPlayedAt(match.playedAt);
       setWinnerSide(match.winnerSide);
-      setRadiant(toFormRows(match.radiant));
-      setDire(toFormRows(match.dire));
+      setTeamSize(nextSize);
+      setRadiant(toFormRows(match.radiant, nextSize));
+      setDire(toFormRows(match.dire, nextSize));
       setShowForm(true);
     } catch (e) {
       setActionError(e instanceof ApiError ? e.message : "Failed to load match");
@@ -327,15 +343,31 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
       {showForm && (
         <form className="match-form card" onSubmit={handleSubmit}>
           <div className="match-form-toolbar">
-            <label className="date-field">
-              <span>Date</span>
-              <input
-                type="date"
-                value={playedAt}
-                onChange={(e) => setPlayedAt(e.target.value)}
-                required
-              />
-            </label>
+            <div className="match-form-fields">
+              <label className="date-field">
+                <span>Date</span>
+                <input
+                  type="date"
+                  value={playedAt}
+                  onChange={(e) => setPlayedAt(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="date-field">
+                <span>Format</span>
+                <select
+                  value={teamSize}
+                  onChange={(e) => changeTeamSize(Number(e.target.value) as TeamSize)}
+                  aria-label="Match format"
+                >
+                  {TEAM_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size}v{size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="match-form-actions">
               <Button type="submit" disabled={saving}>
                 {saving ? "Saving…" : editingId ? "Update Match" : "Create Match"}
