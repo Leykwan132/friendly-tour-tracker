@@ -352,6 +352,7 @@
 }
 
 .date-field input[type="date"],
+.date-field input[type="number"],
 .date-field select {
   width: auto;
   min-width: 160px;
@@ -360,6 +361,10 @@
   color: var(--foreground);
   border-radius: 6px;
   padding: 0.5rem 0.65rem;
+}
+
+.date-field input[type="number"] {
+  min-width: 80px;
 }
 
 .date-field select {

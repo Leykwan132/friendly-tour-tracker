@@ -11,6 +11,8 @@ export interface ParticipantInput {
 export interface MatchInput {
   playedAt: string;
   winnerSide: Side;
+  /** Lower is more recent: 1 = latest, higher = older. */
+  sortOrder: number;
   radiant: ParticipantInput[];
   dire: ParticipantInput[];
 }
@@ -24,7 +26,7 @@ export function validatePlayerName(name: unknown): string | null {
 export function validateMatchInput(body: unknown): MatchInput | string {
   if (!body || typeof body !== "object") return "Invalid request body";
 
-  const { playedAt, winnerSide, radiant, dire } = body as Record<string, unknown>;
+  const { playedAt, winnerSide, sortOrder, radiant, dire } = body as Record<string, unknown>;
 
   if (typeof playedAt !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(playedAt)) {
     return "playedAt must be a date string (YYYY-MM-DD)";
@@ -32,6 +34,14 @@ export function validateMatchInput(body: unknown): MatchInput | string {
 
   if (winnerSide !== "radiant" && winnerSide !== "dire") {
     return "winnerSide must be 'radiant' or 'dire'";
+  }
+
+  if (
+    typeof sortOrder !== "number" ||
+    !Number.isInteger(sortOrder) ||
+    sortOrder < 1
+  ) {
+    return "sortOrder must be an integer >= 1 (1 = latest)";
   }
 
   const radiantResult = validateParticipants(radiant, "radiant");
@@ -53,6 +63,7 @@ export function validateMatchInput(body: unknown): MatchInput | string {
   return {
     playedAt,
     winnerSide,
+    sortOrder,
     radiant: radiantResult,
     dire: direResult,
   };

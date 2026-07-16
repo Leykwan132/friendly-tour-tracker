@@ -5,6 +5,7 @@ interface MatchRow {
   id: number;
   played_at: string;
   winner_side: Side;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +44,7 @@ function formatMatch(row: MatchRow, participants: ParticipantRow[]) {
     id: row.id,
     playedAt: row.played_at,
     winnerSide: row.winner_side,
+    sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     participants: participants.map(formatParticipant),
@@ -96,15 +98,19 @@ async function insertMatchWithParticipants(
     await db.batch([
       db
         .prepare(
-          "UPDATE matches SET played_at = ?, winner_side = ?, updated_at = datetime('now') WHERE id = ?",
+          `UPDATE matches
+           SET played_at = ?, winner_side = ?, sort_order = ?, updated_at = datetime('now')
+           WHERE id = ?`,
         )
-        .bind(input.playedAt, input.winnerSide, matchId),
+        .bind(input.playedAt, input.winnerSide, input.sortOrder, matchId),
       db.prepare("DELETE FROM match_participants WHERE match_id = ?").bind(matchId),
     ]);
   } else {
     const insertResult = await db
-      .prepare("INSERT INTO matches (played_at, winner_side) VALUES (?, ?)")
-      .bind(input.playedAt, input.winnerSide)
+      .prepare(
+        "INSERT INTO matches (played_at, winner_side, sort_order) VALUES (?, ?, ?)",
+      )
+      .bind(input.playedAt, input.winnerSide, input.sortOrder)
       .run();
     resolvedMatchId = insertResult.meta.last_row_id;
   }
@@ -137,6 +143,9 @@ async function insertMatchWithParticipants(
   return { id: resolvedMatchId };
 }
 
+const MATCH_SELECT =
+  "SELECT id, played_at, winner_side, sort_order, created_at, updated_at FROM matches";
+
 export async function handleMatches(
   request: Request,
   env: Env,
@@ -148,12 +157,12 @@ export async function handleMatches(
     if (request.method === "GET") {
       const result = await db
         .prepare(
-          `SELECT m.id, m.played_at, m.winner_side, m.created_at, m.updated_at,
+          `SELECT m.id, m.played_at, m.winner_side, m.sort_order, m.created_at, m.updated_at,
                   COUNT(mp.id) AS participant_count
            FROM matches m
            LEFT JOIN match_participants mp ON mp.match_id = m.id
            GROUP BY m.id
-           ORDER BY m.played_at DESC, m.id DESC`,
+           ORDER BY m.sort_order ASC, m.id DESC`,
         )
         .all<MatchListRow>();
 
@@ -162,6 +171,7 @@ export async function handleMatches(
           id: row.id,
           playedAt: row.played_at,
           winnerSide: row.winner_side,
+          sortOrder: row.sort_order,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           participantCount: row.participant_count,
@@ -178,7 +188,7 @@ export async function handleMatches(
       if (typeof created === "string") return error(created);
 
       const match = await db
-        .prepare("SELECT id, played_at, winner_side, created_at, updated_at FROM matches WHERE id = ?")
+        .prepare(`${MATCH_SELECT} WHERE id = ?`)
         .bind(created.id)
         .first<MatchRow>();
 
@@ -194,7 +204,7 @@ export async function handleMatches(
 
   if (request.method === "GET") {
     const match = await db
-      .prepare("SELECT id, played_at, winner_side, created_at, updated_at FROM matches WHERE id = ?")
+      .prepare(`${MATCH_SELECT} WHERE id = ?`)
       .bind(id)
       .first<MatchRow>();
 
@@ -220,7 +230,7 @@ export async function handleMatches(
     if (typeof updated === "string") return error(updated);
 
     const match = await db
-      .prepare("SELECT id, played_at, winner_side, created_at, updated_at FROM matches WHERE id = ?")
+      .prepare(`${MATCH_SELECT} WHERE id = ?`)
       .bind(id)
       .first<MatchRow>();
 

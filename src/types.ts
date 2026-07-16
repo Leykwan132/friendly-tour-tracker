@@ -29,6 +29,8 @@ export interface Match {
   id: number;
   playedAt: string;
   winnerSide: Side;
+  /** Lower is more recent: 1 = latest, higher = older. */
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
   participantCount?: number;
@@ -40,6 +42,8 @@ export interface Match {
 export interface MatchInput {
   playedAt: string;
   winnerSide: Side;
+  /** Lower is more recent: 1 = latest, higher = older. */
+  sortOrder: number;
   radiant: ParticipantInput[];
   dire: ParticipantInput[];
 }

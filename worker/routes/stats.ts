@@ -97,48 +97,51 @@ interface PlayerMatchResultRow {
   player_id: number;
   player_name?: string;
   match_id: number;
-  played_at: string;
+  sort_order: number;
   won: number;
 }
 
-/** Always fetch streak/L10 history with date + id so callers can sort reliably. */
+/**
+ * Fetch streak/L10 history ordered by match sort_order.
+ * sort_order 1 = latest, higher = older.
+ */
 const PLAYER_MATCH_RESULTS_SQL = `SELECT p.id AS player_id,
         p.name AS player_name,
         m.id AS match_id,
-        m.played_at,
+        m.sort_order,
         CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END AS won
  FROM match_participants mp
  JOIN matches m ON m.id = mp.match_id
  JOIN players p ON p.id = mp.player_id
- ORDER BY p.id ASC, m.played_at DESC, m.id DESC`;
+ ORDER BY p.id ASC, m.sort_order ASC, m.id DESC`;
 
 function normalizePlayerMatchResult(row: Record<string, unknown>): PlayerMatchResultRow {
   return {
     player_id: Number(row.player_id),
     player_name: typeof row.player_name === "string" ? row.player_name : undefined,
     match_id: Number(row.match_id),
-    played_at: String(row.played_at ?? ""),
+    sort_order: Number(row.sort_order),
     won: Number(row.won) === 1 ? 1 : 0,
   };
 }
 
-/** Most recent match first: played_at DESC, then match id DESC. */
+/** Latest match first: sort_order ASC (1 = latest), then match id DESC. */
 function sortResultsMostRecentFirst(results: PlayerMatchResultRow[]): PlayerMatchResultRow[] {
   return [...results].sort((a, b) => {
-    const byDate = b.played_at.localeCompare(a.played_at);
-    if (byDate !== 0) return byDate;
+    const byOrder = a.sort_order - b.sort_order;
+    if (byOrder !== 0) return byOrder;
     return b.match_id - a.match_id;
   });
 }
 
-/** Group raw SQL rows by player; each player's matches are always date-sorted (newest first). */
+/** Group raw SQL rows by player; each player's matches are always order-sorted (latest first). */
 function groupPlayerResultsSorted(rows: unknown[]): Map<number, PlayerMatchResultRow[]> {
   const byPlayer = new Map<number, PlayerMatchResultRow[]>();
 
   for (const raw of rows) {
     if (!raw || typeof raw !== "object") continue;
     const row = normalizePlayerMatchResult(raw as Record<string, unknown>);
-    if (!Number.isFinite(row.player_id) || !row.played_at) continue;
+    if (!Number.isFinite(row.player_id) || !Number.isFinite(row.sort_order)) continue;
     const existing = byPlayer.get(row.player_id) ?? [];
     existing.push(row);
     byPlayer.set(row.player_id, existing);
@@ -151,7 +154,7 @@ function groupPlayerResultsSorted(rows: unknown[]): Map<number, PlayerMatchResul
   return byPlayer;
 }
 
-/** Current streak from newest→oldest. `results` must already be sorted most-recent-first. */
+/** Current streak from latest→oldest by sort_order. */
 function computeCurrentStreak(results: PlayerMatchResultRow[], type: "win" | "loss"): number {
   const ordered = sortResultsMostRecentFirst(results);
   if (ordered.length === 0) return 0;
@@ -176,7 +179,7 @@ function computeCurrentStreak(results: PlayerMatchResultRow[], type: "win" | "lo
   return streak;
 }
 
-/** Last N record from newest→oldest. `results` must already be sorted most-recent-first. */
+/** Last N record from latest→oldest by sort_order. */
 function computeLastNRecord(
   results: PlayerMatchResultRow[],
   count: number,
@@ -186,7 +189,7 @@ function computeLastNRecord(
   return { wins, losses: recent.length - wins };
 }
 
-/** All streak/L10 fields derived from date-sorted match history. */
+/** All streak/L10 fields derived from sort_order-sorted match history. */
 function computeStreakStats(results: PlayerMatchResultRow[]) {
   const ordered = sortResultsMostRecentFirst(results);
   const last10 = computeLastNRecord(ordered, 10);

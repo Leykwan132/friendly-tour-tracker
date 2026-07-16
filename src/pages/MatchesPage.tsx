@@ -180,6 +180,7 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [playedAt, setPlayedAt] = useState(todayString());
+  const [sortOrder, setSortOrder] = useState("1");
   const [winnerSide, setWinnerSide] = useState<Side>("radiant");
   const [teamSize, setTeamSize] = useState<TeamSize>(5);
   const [radiant, setRadiant] = useState<ParticipantFormRow[]>(() => emptySide(5));
@@ -213,6 +214,7 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
   function resetForm() {
     setEditingId(null);
     setPlayedAt(todayString());
+    setSortOrder("1");
     setWinnerSide("radiant");
     setTeamSize(5);
     setRadiant(emptySide(5));
@@ -238,6 +240,7 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
       const nextSize = teamSizeFromMatch(match);
       setEditingId(id);
       setPlayedAt(match.playedAt);
+      setSortOrder(String(match.sortOrder ?? 1));
       setWinnerSide(match.winnerSide);
       setTeamSize(nextSize);
       setRadiant(toFormRows(match.radiant, nextSize));
@@ -281,9 +284,16 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
       return;
     }
 
+    const parsedSortOrder = Number(sortOrder);
+    if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 1) {
+      setActionError("Order must be an integer >= 1 (1 = latest)");
+      return;
+    }
+
     const payload: MatchInput = {
       playedAt,
       winnerSide,
+      sortOrder: parsedSortOrder,
       radiant: radiantParsed,
       dire: direParsed,
     };
@@ -354,6 +364,19 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
                 />
               </label>
               <label className="date-field">
+                <span>Order</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  required
+                  title="1 = latest, higher = older"
+                  aria-label="Match order (1 is latest)"
+                />
+              </label>
+              <label className="date-field">
                 <span>Format</span>
                 <select
                   value={teamSize}
@@ -411,10 +434,16 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
       <SortableTable
         data={matches}
         rowKey={(row) => row.id}
-        defaultSortKey="playedAt"
-        defaultDirection="desc"
+        defaultSortKey="sortOrder"
+        defaultDirection="asc"
         emptyMessage="No matches recorded yet."
         columns={[
+          {
+            key: "sortOrder",
+            label: "Order",
+            align: "center",
+            sortValue: (row) => row.sortOrder,
+          },
           {
             key: "playedAt",
             label: "Date",
