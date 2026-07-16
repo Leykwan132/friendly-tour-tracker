@@ -69,6 +69,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
   const [teammateStats, setTeammateStats] = useState<TeammateStats[]>([]);
   const [playerBestHeroes, setPlayerBestHeroes] = useState<PlayerBestHeroStats[]>([]);
   const [bestHeroMode, setBestHeroMode] = useState<BestHeroMode>("winPct");
+  const [bestHeroesLoading, setBestHeroesLoading] = useState(false);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [summary, setSummary] = useState<SummaryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,11 +108,14 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
     let cancelled = false;
 
     async function loadBestHeroes() {
+      setBestHeroesLoading(true);
       try {
         const bestHeroes = await api.getPlayerBestHeroes(bestHeroMode);
         if (!cancelled) setPlayerBestHeroes(bestHeroes);
       } catch {
         // Keep the previous table if a mode switch fails.
+      } finally {
+        if (!cancelled) setBestHeroesLoading(false);
       }
     }
 
@@ -300,6 +304,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
               value={bestHeroMode}
               onChange={(e) => setBestHeroMode(e.target.value as BestHeroMode)}
               aria-label="Best hero criteria"
+              disabled={bestHeroesLoading}
             >
               {BEST_HERO_MODES.map((mode) => (
                 <option key={mode.value} value={mode.value}>
@@ -309,6 +314,9 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
             </select>
           </label>
         </div>
+        {bestHeroesLoading && (
+          <p className="match-detail-status">Updating best heroes…</p>
+        )}
         <SortableTable
           key={bestHeroMode}
           data={playerBestHeroes}

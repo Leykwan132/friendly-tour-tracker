@@ -162,17 +162,32 @@ function compareBestHero(
   return row.hero.localeCompare(best.hero) < 0 ? row : best;
 }
 
+function normalizePlayerHeroRow(row: PlayerHeroRow): PlayerHeroRow {
+  return {
+    ...row,
+    player_id: Number(row.player_id),
+    games: Number(row.games),
+    wins: Number(row.wins),
+    total_kills: Number(row.total_kills),
+    total_deaths: Number(row.total_deaths),
+    total_assists: Number(row.total_assists),
+    win_streak: Number(row.win_streak),
+    loss_streak: Number(row.loss_streak),
+  };
+}
+
 function pickBestHero(rows: PlayerHeroRow[], mode: BestHeroMode): PlayerHeroRow | null {
   if (rows.length === 0) return null;
 
-  // Most Played can use every sample; other modes prefer 2+ games when available.
+  // Only Highest Win % prefers 2+ games (avoids one-off 1-0 = 100%).
+  // Wins / KDA / streak / most-played should consider every hero for that player.
   const pool =
-    mode === "games"
-      ? rows
-      : (() => {
+    mode === "winPct"
+      ? (() => {
           const qualified = rows.filter((row) => row.games >= 2);
           return qualified.length > 0 ? qualified : rows;
-        })();
+        })()
+      : rows;
 
   return pool.reduce((best, row) => compareBestHero(best, row, mode));
 }
@@ -526,14 +541,14 @@ export async function handleStats(
     for (const row of heroStatsResult.results as PlayerHeroRow[]) {
       const key = `${row.player_id}\0${row.hero}`;
       const history = historyByPlayerHero.get(key) ?? [];
-      const enriched: PlayerHeroRow = {
+      const enriched = normalizePlayerHeroRow({
         ...row,
         win_streak: computeOrderedStreak(history, "win"),
         loss_streak: computeOrderedStreak(history, "loss"),
-      };
-      const existing = heroStatsByPlayer.get(row.player_id) ?? [];
+      });
+      const existing = heroStatsByPlayer.get(enriched.player_id) ?? [];
       existing.push(enriched);
-      heroStatsByPlayer.set(row.player_id, existing);
+      heroStatsByPlayer.set(enriched.player_id, existing);
     }
 
     return json(
