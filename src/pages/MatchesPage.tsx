@@ -5,15 +5,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { HeroCombobox } from "../components/HeroCombobox";
 import { PlayerCombobox } from "../components/PlayerCombobox";
 import { MatchesPageSkeleton } from "../components/PageSkeletons";
-import type {
-  Match,
-  MatchInput,
-  MatchParticipant,
-  ParticipantInput,
-  Player,
-  Side,
-} from "../types";
-import { SortableTable } from "../components/SortableTable";
+import type { Match, MatchInput, ParticipantInput, Player, Side } from "../types";
+import { MatchesTable } from "../components/MatchesTable";
 
 interface MatchesPageProps {
   refreshKey: number;
@@ -70,47 +63,6 @@ function toFormRows(
 function teamSizeFromMatch(match: Match): TeamSize {
   const size = Math.max(match.radiant?.length ?? 0, match.dire?.length ?? 0);
   return size <= 4 ? 4 : 5;
-}
-
-function MatchDetailSide({
-  title,
-  participants,
-  isWinner,
-}: {
-  title: string;
-  participants: MatchParticipant[];
-  isWinner: boolean;
-}) {
-  return (
-    <div className={`match-detail-side ${title.toLowerCase()}`}>
-      <h4>
-        {title}
-        {isWinner && <span className="match-winner-badge">Winner</span>}
-      </h4>
-      <table>
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th>Hero</th>
-            <th>K</th>
-            <th>D</th>
-            <th>A</th>
-          </tr>
-        </thead>
-        <tbody>
-          {participants.map((p) => (
-            <tr key={p.id}>
-              <td>{p.playerName}</td>
-              <td>{p.hero}</td>
-              <td>{p.kills}</td>
-              <td>{p.deaths}</td>
-              <td>{p.assists}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 function parseSide(rows: ParticipantFormRow[]): ParticipantInput[] | string {
@@ -237,10 +189,6 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [expandedDetails, setExpandedDetails] = useState<Record<number, Match>>({});
-  const [expandLoadingId, setExpandLoadingId] = useState<number | null>(null);
-  const [expandError, setExpandError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -358,13 +306,6 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
         await api.createMatch(payload);
       }
       setShowForm(false);
-      if (editingId != null) {
-        setExpandedDetails((current) => {
-          const next = { ...current };
-          delete next[editingId];
-          return next;
-        });
-      }
       resetForm();
       onDataChange();
       await load();
@@ -380,42 +321,10 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
     setActionError(null);
     try {
       await api.deleteMatch(id);
-      if (expandedId === id) {
-        setExpandedId(null);
-        setExpandError(null);
-      }
-      setExpandedDetails((current) => {
-        const next = { ...current };
-        delete next[id];
-        return next;
-      });
       onDataChange();
       await load();
     } catch (e) {
       setActionError(e instanceof ApiError ? e.message : "Failed to delete match");
-    }
-  }
-
-  async function toggleMatchDetails(id: number) {
-    if (expandedId === id) {
-      setExpandedId(null);
-      setExpandError(null);
-      return;
-    }
-
-    setExpandedId(id);
-    setExpandError(null);
-
-    if (expandedDetails[id]) return;
-
-    setExpandLoadingId(id);
-    try {
-      const match = await api.getMatch(id);
-      setExpandedDetails((current) => ({ ...current, [id]: match }));
-    } catch (e) {
-      setExpandError(e instanceof ApiError ? e.message : "Failed to load match details");
-    } finally {
-      setExpandLoadingId(null);
     }
   }
 
@@ -522,106 +431,29 @@ export function MatchesPage({ refreshKey, onDataChange }: MatchesPageProps) {
         </form>
       )}
 
-      <SortableTable
-        data={matches}
-        rowKey={(row) => row.id}
-        defaultSortKey="sortOrder"
-        defaultDirection="asc"
+      <MatchesTable
+        matches={matches}
         emptyMessage="No matches recorded yet."
-        expandedRowKey={expandedId}
-        onRowClick={(row) => void toggleMatchDetails(row.id)}
-        renderExpandedRow={(row) => {
-          const detail = expandedDetails[row.id];
-          const loadingDetail = expandLoadingId === row.id;
-
-          if (loadingDetail) {
-            return (
-              <div className="match-detail">
-                <p className="match-detail-status">Loading match details…</p>
-              </div>
-            );
-          }
-
-          if (!detail) {
-            return (
-              <div className="match-detail">
-                <p className="error-message">{expandError ?? "Failed to load match details"}</p>
-              </div>
-            );
-          }
-
-          return (
-            <div className="match-detail">
-              <div className="match-detail-sides">
-                <MatchDetailSide
-                  title="Radiant"
-                  participants={detail.radiant ?? []}
-                  isWinner={detail.winnerSide === "radiant"}
-                />
-                <MatchDetailSide
-                  title="Dire"
-                  participants={detail.dire ?? []}
-                  isWinner={detail.winnerSide === "dire"}
-                />
-              </div>
-            </div>
-          );
-        }}
-        columns={[
-          {
-            key: "sortOrder",
-            label: "Order",
-            align: "center",
-            sortValue: (row) => row.sortOrder,
-          },
-          {
-            key: "playedAt",
-            label: "Date",
-            sortValue: (row) => row.playedAt,
-          },
-          {
-            key: "winnerSide",
-            label: "Winner",
-            sortValue: (row) => row.winnerSide,
-            render: (row) => (
-              <span className={`side-badge ${row.winnerSide}`}>
-                {row.winnerSide === "radiant" ? "Radiant" : "Dire"}
-              </span>
-            ),
-          },
-          {
-            key: "participantCount",
-            label: "Players",
-            align: "center",
-            sortValue: (row) => row.participantCount ?? 0,
-            render: (row) => row.participantCount ?? 0,
-          },
-          {
-            key: "actions",
-            label: "Actions",
-            align: "right",
-            render: (row) => (
-              <div className="action-buttons" onClick={(event) => event.stopPropagation()}>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void openEditForm(row.id)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleDelete(row.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-            ),
-          },
-        ]}
+        renderActions={(row) => (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void openEditForm(row.id)}
+            >
+              Edit
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void handleDelete(row.id)}
+            >
+              Delete
+            </Button>
+          </>
+        )}
       />
     </div>
   );

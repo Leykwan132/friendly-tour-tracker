@@ -24,6 +24,17 @@ interface ParticipantRow {
 
 interface MatchListRow extends MatchRow {
   participant_count: number;
+  radiant_kills: number;
+  dire_kills: number;
+}
+
+interface MatchMvpRow {
+  match_id: number;
+  player_name: string;
+  hero: string;
+  kills: number;
+  deaths: number;
+  assists: number;
 }
 
 function formatParticipant(row: ParticipantRow) {
@@ -155,27 +166,67 @@ export async function handleMatches(
 
   if (pathname === "/api/matches") {
     if (request.method === "GET") {
-      const result = await db
-        .prepare(
+      const [result, mvpResult] = await db.batch([
+        db.prepare(
           `SELECT m.id, m.played_at, m.winner_side, m.sort_order, m.created_at, m.updated_at,
-                  COUNT(mp.id) AS participant_count
+                  COUNT(mp.id) AS participant_count,
+                  COALESCE(SUM(CASE WHEN mp.side = 'radiant' THEN mp.kills ELSE 0 END), 0) AS radiant_kills,
+                  COALESCE(SUM(CASE WHEN mp.side = 'dire' THEN mp.kills ELSE 0 END), 0) AS dire_kills
            FROM matches m
            LEFT JOIN match_participants mp ON mp.match_id = m.id
            GROUP BY m.id
            ORDER BY m.sort_order ASC, m.id DESC`,
-        )
-        .all<MatchListRow>();
+        ),
+        db.prepare(
+          `WITH ranked AS (
+             SELECT mp.match_id,
+                    p.name AS player_name,
+                    mp.hero,
+                    mp.kills,
+                    mp.deaths,
+                    mp.assists,
+                    ROW_NUMBER() OVER (
+                      PARTITION BY mp.match_id
+                      ORDER BY mp.kills DESC, mp.assists DESC, mp.deaths ASC, mp.id ASC
+                    ) AS rn
+             FROM match_participants mp
+             JOIN players p ON p.id = mp.player_id
+           )
+           SELECT match_id, player_name, hero, kills, deaths, assists
+           FROM ranked
+           WHERE rn = 1`,
+        ),
+      ]);
+
+      const mvpByMatch = new Map<number, MatchMvpRow>();
+      for (const row of mvpResult.results as MatchMvpRow[]) {
+        mvpByMatch.set(row.match_id, row);
+      }
 
       return json(
-        result.results.map((row) => ({
-          id: row.id,
-          playedAt: row.played_at,
-          winnerSide: row.winner_side,
-          sortOrder: row.sort_order,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-          participantCount: row.participant_count,
-        })),
+        (result.results as MatchListRow[]).map((row) => {
+          const mvp = mvpByMatch.get(row.id);
+          return {
+            id: row.id,
+            playedAt: row.played_at,
+            winnerSide: row.winner_side,
+            sortOrder: row.sort_order,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            participantCount: row.participant_count,
+            radiantKills: row.radiant_kills,
+            direKills: row.dire_kills,
+            mvp: mvp
+              ? {
+                  playerName: mvp.player_name,
+                  hero: mvp.hero,
+                  kills: mvp.kills,
+                  deaths: mvp.deaths,
+                  assists: mvp.assists,
+                }
+              : null,
+          };
+        }),
       );
     }
 

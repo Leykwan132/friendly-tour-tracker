@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { CrossTable } from "../components/CrossTable";
+import { MatchesTable } from "../components/MatchesTable";
 import { DashboardPageSkeleton } from "../components/PageSkeletons";
 import { SortableTable } from "../components/SortableTable";
 import type {
   CrossTableData,
   HeroStats,
+  Match,
   PlayerBestHeroStats,
   PlayerStats,
   SummaryStats,
@@ -33,6 +35,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
   const [heroStats, setHeroStats] = useState<HeroStats[]>([]);
   const [teammateStats, setTeammateStats] = useState<TeammateStats[]>([]);
   const [playerBestHeroes, setPlayerBestHeroes] = useState<PlayerBestHeroStats[]>([]);
+  const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [summary, setSummary] = useState<SummaryStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,19 +44,22 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
     setLoading(true);
     setError(null);
     try {
-      const [cross, players, heroes, teammates, bestHeroes, summaryData] = await Promise.all([
-        api.getCrossTable(),
-        api.getPlayerStats(),
-        api.getHeroStats(),
-        api.getTeammateStats(),
-        api.getPlayerBestHeroes(),
-        api.getSummary(),
-      ]);
+      const [cross, players, heroes, teammates, bestHeroes, matches, summaryData] =
+        await Promise.all([
+          api.getCrossTable(),
+          api.getPlayerStats(),
+          api.getHeroStats(),
+          api.getTeammateStats(),
+          api.getPlayerBestHeroes(),
+          api.getMatches(),
+          api.getSummary(),
+        ]);
       setCrossTable(cross);
       setPlayerStats(players);
       setHeroStats(heroes);
       setTeammateStats(teammates);
       setPlayerBestHeroes(bestHeroes);
+      setRecentMatches(matches);
       setSummary(summaryData);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load stats");
@@ -65,6 +71,14 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  const latestMatches = useMemo(
+    () =>
+      [...recentMatches]
+        .sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id)
+        .slice(0, 5),
+    [recentMatches],
+  );
 
   if (loading) return <DashboardPageSkeleton />;
   if (error) return <p className="error-message">{error}</p>;
@@ -347,6 +361,11 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
             },
           ]}
         />
+      </section>
+
+      <section className="dashboard-section">
+        <h3>Recent Matches</h3>
+        <MatchesTable matches={latestMatches} emptyMessage="No matches recorded yet." />
       </section>
     </div>
   );

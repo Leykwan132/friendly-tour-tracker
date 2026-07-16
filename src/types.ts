@@ -25,6 +25,14 @@ export interface MatchParticipant {
   assists: number;
 }
 
+export interface MatchPreviewMvp {
+  playerName: string;
+  hero: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+}
+
 export interface Match {
   id: number;
   playedAt: string;
@@ -34,6 +42,9 @@ export interface Match {
   createdAt: string;
   updatedAt: string;
   participantCount?: number;
+  radiantKills?: number;
+  direKills?: number;
+  mvp?: MatchPreviewMvp | null;
   participants?: MatchParticipant[];
   radiant?: MatchParticipant[];
   dire?: MatchParticipant[];
