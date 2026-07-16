@@ -125,6 +125,9 @@ export interface PlayerBestHeroStats {
   wins: number;
   losses: number;
   winPct: number | null;
+  avgKda: number | null;
+  winStreak: number;
+  lossStreak: number;
 }
 
 export interface SummaryStats {

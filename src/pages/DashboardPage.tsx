@@ -29,6 +29,13 @@ function formatStreak(winStreak: number, lossStreak: number): string {
   return "—";
 }
 
+/** Group L/W first (alphabetically), then sort by streak length. */
+function streakSortValue(winStreak: number, lossStreak: number): string {
+  if (winStreak > 0) return `W-${String(winStreak).padStart(4, "0")}`;
+  if (lossStreak > 0) return `L-${String(lossStreak).padStart(4, "0")}`;
+  return "Z-0000";
+}
+
 export function DashboardPage({ refreshKey }: DashboardPageProps) {
   const [crossTable, setCrossTable] = useState<CrossTableData | null>(null);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
@@ -211,7 +218,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
               key: "streak",
               label: "Strk",
               align: "center",
-              sortValue: (row) => row.winStreak || row.lossStreak,
+              sortValue: (row) => streakSortValue(row.winStreak, row.lossStreak),
               render: (row) => formatStreak(row.winStreak, row.lossStreak),
             },
             {
@@ -281,6 +288,21 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
               align: "center",
               sortValue: (row) => row.winPct ?? -1,
               render: (row) => (row.winPct === null ? "—" : `${row.winPct}%`),
+            },
+            {
+              key: "avgKda",
+              label: "KDA",
+              align: "center",
+              sortValue: (row) => row.avgKda ?? -1,
+              render: (row) => (row.avgKda === null ? "—" : row.avgKda),
+            },
+            {
+              key: "streak",
+              label: "Strk",
+              align: "center",
+              sortValue: (row) => streakSortValue(row.winStreak, row.lossStreak),
+              render: (row) =>
+                row.hero ? formatStreak(row.winStreak, row.lossStreak) : "—",
             },
           ]}
         />

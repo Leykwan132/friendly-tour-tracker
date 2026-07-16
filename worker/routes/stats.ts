@@ -51,6 +51,45 @@ interface PlayerHeroRow {
   hero: string;
   games: number;
   wins: number;
+  total_kills: number;
+  total_deaths: number;
+  total_assists: number;
+  win_streak: number;
+  loss_streak: number;
+}
+
+interface PlayerHeroMatchRow {
+  player_id: number;
+  hero: string;
+  match_id: number;
+  sort_order: number;
+  won: number;
+}
+
+function computeOrderedStreak(
+  results: { won: number }[],
+  type: "win" | "loss",
+): number {
+  if (results.length === 0) return 0;
+
+  const mostRecentWin = results[0].won === 1;
+  if (type === "win" && !mostRecentWin) return 0;
+  if (type === "loss" && mostRecentWin) return 0;
+
+  let streak = 0;
+  for (const result of results) {
+    const isWin = result.won === 1;
+    if (type === "win") {
+      if (!isWin) break;
+      streak++;
+      continue;
+    }
+
+    if (isWin) break;
+    streak++;
+  }
+
+  return streak;
 }
 
 function pickBestHero(rows: PlayerHeroRow[]): PlayerHeroRow | null {
@@ -65,6 +104,14 @@ function pickBestHero(rows: PlayerHeroRow[]): PlayerHeroRow | null {
 
     if (rowWinPct > bestWinPct) return row;
     if (rowWinPct < bestWinPct) return best;
+
+    const rowKda = computeKda(row.total_kills, row.total_deaths, row.total_assists);
+    const bestKda = computeKda(best.total_kills, best.total_deaths, best.total_assists);
+
+    if (rowKda > bestKda) return row;
+    if (rowKda < bestKda) return best;
+    if (row.win_streak > best.win_streak) return row;
+    if (row.win_streak < best.win_streak) return best;
     if (row.games > best.games) return row;
     if (row.games < best.games) return best;
     return row.hero.localeCompare(best.hero) < 0 ? row : best;
@@ -156,27 +203,7 @@ function groupPlayerResultsSorted(rows: unknown[]): Map<number, PlayerMatchResul
 
 /** Current streak from latest→oldest by sort_order. */
 function computeCurrentStreak(results: PlayerMatchResultRow[], type: "win" | "loss"): number {
-  const ordered = sortResultsMostRecentFirst(results);
-  if (ordered.length === 0) return 0;
-
-  const mostRecentWin = ordered[0].won === 1;
-  if (type === "win" && !mostRecentWin) return 0;
-  if (type === "loss" && mostRecentWin) return 0;
-
-  let streak = 0;
-  for (const result of ordered) {
-    const isWin = result.won === 1;
-    if (type === "win") {
-      if (!isWin) break;
-      streak++;
-      continue;
-    }
-
-    if (isWin) break;
-    streak++;
-  }
-
-  return streak;
+  return computeOrderedStreak(sortResultsMostRecentFirst(results), type);
 }
 
 /** Last N record from latest→oldest by sort_order. */
@@ -400,23 +427,52 @@ export async function handleStats(
   }
 
   if (pathname === "/api/stats/player-best-heroes") {
-    const [playersResult, heroStatsResult] = await db.batch([
+    const [playersResult, heroStatsResult, heroHistoryResult] = await db.batch([
       db.prepare("SELECT id, name FROM players ORDER BY name COLLATE NOCASE ASC"),
       db.prepare(
         `SELECT p.id AS player_id, p.name AS player_name, mp.hero,
                 COUNT(mp.id) AS games,
-                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins
+                SUM(CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END) AS wins,
+                SUM(mp.kills) AS total_kills,
+                SUM(mp.deaths) AS total_deaths,
+                SUM(mp.assists) AS total_assists
          FROM match_participants mp
          JOIN players p ON p.id = mp.player_id
          JOIN matches m ON m.id = mp.match_id
          GROUP BY p.id, mp.hero`,
       ),
+      db.prepare(
+        `SELECT p.id AS player_id,
+                mp.hero,
+                m.id AS match_id,
+                m.sort_order,
+                CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END AS won
+         FROM match_participants mp
+         JOIN players p ON p.id = mp.player_id
+         JOIN matches m ON m.id = mp.match_id
+         ORDER BY p.id ASC, mp.hero COLLATE NOCASE ASC, m.sort_order ASC, m.id DESC`,
+      ),
     ]);
+
+    const historyByPlayerHero = new Map<string, { won: number }[]>();
+    for (const row of heroHistoryResult.results as PlayerHeroMatchRow[]) {
+      const key = `${row.player_id}\0${row.hero}`;
+      const existing = historyByPlayerHero.get(key) ?? [];
+      existing.push({ won: Number(row.won) === 1 ? 1 : 0 });
+      historyByPlayerHero.set(key, existing);
+    }
 
     const heroStatsByPlayer = new Map<number, PlayerHeroRow[]>();
     for (const row of heroStatsResult.results as PlayerHeroRow[]) {
+      const key = `${row.player_id}\0${row.hero}`;
+      const history = historyByPlayerHero.get(key) ?? [];
+      const enriched: PlayerHeroRow = {
+        ...row,
+        win_streak: computeOrderedStreak(history, "win"),
+        loss_streak: computeOrderedStreak(history, "loss"),
+      };
       const existing = heroStatsByPlayer.get(row.player_id) ?? [];
-      existing.push(row);
+      existing.push(enriched);
       heroStatsByPlayer.set(row.player_id, existing);
     }
 
@@ -433,8 +489,16 @@ export async function handleStats(
             wins: 0,
             losses: 0,
             winPct: null,
+            avgKda: null,
+            winStreak: 0,
+            lossStreak: 0,
           };
         }
+
+        const avgKda =
+          Math.round(
+            computeKda(bestHero.total_kills, bestHero.total_deaths, bestHero.total_assists) * 100,
+          ) / 100;
 
         return {
           playerId: player.id,
@@ -444,6 +508,9 @@ export async function handleStats(
           wins: bestHero.wins,
           losses: bestHero.games - bestHero.wins,
           winPct: computeWinPct(bestHero.wins, bestHero.games),
+          avgKda,
+          winStreak: bestHero.win_streak,
+          lossStreak: bestHero.loss_streak,
         };
       }),
     );
