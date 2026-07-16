@@ -4,6 +4,14 @@ import { CrossTable } from "../components/CrossTable";
 import { MatchesTable } from "../components/MatchesTable";
 import { DashboardPageSkeleton } from "../components/PageSkeletons";
 import { SortableTable } from "../components/SortableTable";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   CrossTableData,
   HeroStats,
@@ -298,21 +306,30 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
       <section className="dashboard-section">
         <div className="dashboard-section-header">
           <h3>Best Hero by Player</h3>
-          <label className="section-filter">
-            <span className="sr-only">Best hero criteria</span>
-            <select
-              value={bestHeroMode}
-              onChange={(e) => setBestHeroMode(e.target.value as BestHeroMode)}
+          <Select
+            items={[...BEST_HERO_MODES]}
+            value={bestHeroMode}
+            onValueChange={(value) => {
+              if (value) setBestHeroMode(value as BestHeroMode);
+            }}
+            disabled={bestHeroesLoading}
+          >
+            <SelectTrigger
+              className="section-filter-trigger w-auto gap-2 px-3"
               aria-label="Best hero criteria"
-              disabled={bestHeroesLoading}
             >
-              {BEST_HERO_MODES.map((mode) => (
-                <option key={mode.value} value={mode.value}>
-                  {mode.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectGroup>
+                {BEST_HERO_MODES.map((mode) => (
+                  <SelectItem key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
         {bestHeroesLoading && (
           <p className="match-detail-status">Updating best heroes…</p>

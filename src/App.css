@@ -343,18 +343,10 @@
   color: var(--foreground);
 }
 
-.section-filter select {
-  width: auto;
-  max-width: 100%;
+.section-filter-trigger {
   min-height: 2.25rem;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--foreground);
   border-radius: 6px;
-  padding: 0.5rem 2rem 0.5rem 0.75rem;
-  font: inherit;
   font-size: 0.875rem;
-  line-height: 1.25;
 }
 
 .sr-only {
