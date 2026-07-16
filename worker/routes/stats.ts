@@ -178,18 +178,7 @@ function normalizePlayerHeroRow(row: PlayerHeroRow): PlayerHeroRow {
 
 function pickBestHero(rows: PlayerHeroRow[], mode: BestHeroMode): PlayerHeroRow | null {
   if (rows.length === 0) return null;
-
-  // Only Highest Win % prefers 2+ games (avoids one-off 1-0 = 100%).
-  // Wins / KDA / streak / most-played should consider every hero for that player.
-  const pool =
-    mode === "winPct"
-      ? (() => {
-          const qualified = rows.filter((row) => row.games >= 2);
-          return qualified.length > 0 ? qualified : rows;
-        })()
-      : rows;
-
-  return pool.reduce((best, row) => compareBestHero(best, row, mode));
+  return rows.reduce((best, row) => compareBestHero(best, row, mode));
 }
 
 function pickHighestWinRateHero(rows: HeroStatsRow[]): HeroStatsRow | null {
