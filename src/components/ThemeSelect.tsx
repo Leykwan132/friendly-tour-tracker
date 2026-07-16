@@ -23,7 +23,7 @@ export function ThemeSelect() {
       value={theme}
       onValueChange={(value) => setTheme(value as Theme)}
     >
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="w-auto">
         <SelectValue placeholder="Theme" />
       </SelectTrigger>
       <SelectContent>
