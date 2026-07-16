@@ -130,10 +130,80 @@
   background: color-mix(in oklch, var(--neutral-30), var(--foreground) 3%);
 }
 
+.data-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.data-table tbody tr.expanded-row {
+  background: color-mix(in oklch, var(--neutral-30), var(--foreground) 5%);
+}
+
+.data-table tbody tr.expanded-detail-row:hover {
+  background: transparent;
+}
+
+.data-table tbody tr.expanded-detail-row > td {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card), var(--foreground) 2%);
+}
+
 .sortable-table {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.match-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.match-detail-status {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.match-detail-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.match-detail-side h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.match-detail-side table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.match-detail-side th,
+.match-detail-side td {
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.match-detail-side th:nth-child(n + 3),
+.match-detail-side td:nth-child(n + 3) {
+  text-align: center;
+  width: 2.25rem;
+}
+
+@media (max-width: 720px) {
+  .match-detail-sides {
+    grid-template-columns: 1fr;
+  }
 }
 
 .table-expand-actions {

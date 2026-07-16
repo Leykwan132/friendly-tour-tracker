@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export type SortDirection = "asc" | "desc";
@@ -20,6 +20,9 @@ interface SortableTableProps<T> {
   rowKey: (row: T) => string | number;
   compact?: boolean;
   initialLimit?: number;
+  expandedRowKey?: string | number | null;
+  onRowClick?: (row: T) => void;
+  renderExpandedRow?: (row: T) => React.ReactNode;
 }
 
 export function SortableTable<T>({
@@ -31,6 +34,9 @@ export function SortableTable<T>({
   rowKey,
   compact = false,
   initialLimit,
+  expandedRowKey = null,
+  onRowClick,
+  renderExpandedRow,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState(defaultSortKey);
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultDirection);
@@ -101,20 +107,40 @@ export function SortableTable<T>({
             </tr>
           </thead>
           <tbody>
-            {visibleData.map((row) => (
-              <tr key={rowKey(row)}>
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={column.align ? `align-${column.align}` : undefined}
+            {visibleData.map((row) => {
+              const key = rowKey(row);
+              const isExpanded = expandedRowKey != null && key === expandedRowKey;
+
+              return (
+                <Fragment key={key}>
+                  <tr
+                    className={[
+                      onRowClick ? "clickable-row" : "",
+                      isExpanded ? "expanded-row" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || undefined}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
                   >
-                    {column.render
-                      ? column.render(row)
-                      : String((row as Record<string, unknown>)[column.key] ?? "")}
-                  </td>
-                ))}
-              </tr>
-            ))}
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className={column.align ? `align-${column.align}` : undefined}
+                      >
+                        {column.render
+                          ? column.render(row)
+                          : String((row as Record<string, unknown>)[column.key] ?? "")}
+                      </td>
+                    ))}
+                  </tr>
+                  {isExpanded && renderExpandedRow && (
+                    <tr className="expanded-detail-row">
+                      <td colSpan={columns.length}>{renderExpandedRow(row)}</td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
