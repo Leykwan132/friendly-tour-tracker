@@ -85,7 +85,7 @@ function MatchDetailSide({
     <div className={`match-detail-side ${title.toLowerCase()}`}>
       <h4>
         {title}
-        {isWinner && <span className={`side-badge ${title.toLowerCase()}`}>Winner</span>}
+        {isWinner && <span className="match-winner-badge">Winner</span>}
       </h4>
       <table>
         <thead>
