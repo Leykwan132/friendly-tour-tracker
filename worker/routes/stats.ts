@@ -95,19 +95,31 @@ function pickHighestWinRateHero(rows: HeroStatsRow[]): HeroStatsRow | null {
 
 interface PlayerMatchResultRow {
   player_id: number;
-  player_name: string;
+  player_name?: string;
+  match_id: number;
+  played_at: string;
   won: number;
 }
 
-function computeCurrentStreak(results: PlayerMatchResultRow[], type: "win" | "loss"): number {
-  if (results.length === 0) return 0;
+/** Most recent match first: played_at DESC, then match id DESC. */
+function sortResultsMostRecentFirst(results: PlayerMatchResultRow[]): PlayerMatchResultRow[] {
+  return [...results].sort((a, b) => {
+    const byDate = b.played_at.localeCompare(a.played_at);
+    if (byDate !== 0) return byDate;
+    return b.match_id - a.match_id;
+  });
+}
 
-  const mostRecentWin = results[0].won === 1;
+function computeCurrentStreak(results: PlayerMatchResultRow[], type: "win" | "loss"): number {
+  const ordered = sortResultsMostRecentFirst(results);
+  if (ordered.length === 0) return 0;
+
+  const mostRecentWin = ordered[0].won === 1;
   if (type === "win" && !mostRecentWin) return 0;
   if (type === "loss" && mostRecentWin) return 0;
 
   let streak = 0;
-  for (const result of results) {
+  for (const result of ordered) {
     const isWin = result.won === 1;
     if (type === "win") {
       if (!isWin) break;
@@ -126,7 +138,7 @@ function computeLastNRecord(
   results: PlayerMatchResultRow[],
   count: number,
 ): { wins: number; losses: number } {
-  const recent = results.slice(0, count);
+  const recent = sortResultsMostRecentFirst(results).slice(0, count);
   const wins = recent.filter((result) => result.won === 1).length;
   return { wins, losses: recent.length - wins };
 }
@@ -225,11 +237,12 @@ export async function handleStats(
       ),
       db.prepare(
         `SELECT p.id AS player_id,
+                m.id AS match_id,
+                m.played_at,
                 CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END AS won
          FROM match_participants mp
          JOIN matches m ON m.id = mp.match_id
-         JOIN players p ON p.id = mp.player_id
-         ORDER BY p.id, m.played_at DESC, m.id DESC`,
+         JOIN players p ON p.id = mp.player_id`,
       ),
     ]);
 
@@ -245,7 +258,7 @@ export async function handleStats(
         const losses = row.games - row.wins;
         const radiantLosses = row.radiant_games - row.radiant_wins;
         const direLosses = row.dire_games - row.dire_wins;
-        const history = historyByPlayer.get(row.id) ?? [];
+        const history = sortResultsMostRecentFirst(historyByPlayer.get(row.id) ?? []);
         const last10 = computeLastNRecord(history, 10);
         const winStreak = computeCurrentStreak(history, "win");
         const lossStreak = computeCurrentStreak(history, "loss");
@@ -411,11 +424,12 @@ export async function handleStats(
       db.prepare("SELECT COUNT(*) AS count FROM matches"),
       db.prepare(
         `SELECT p.id AS player_id, p.name AS player_name,
+                m.id AS match_id,
+                m.played_at,
                 CASE WHEN mp.side = m.winner_side THEN 1 ELSE 0 END AS won
          FROM match_participants mp
          JOIN matches m ON m.id = mp.match_id
-         JOIN players p ON p.id = mp.player_id
-         ORDER BY p.id, m.played_at DESC, m.id DESC`,
+         JOIN players p ON p.id = mp.player_id`,
       ),
       db.prepare(
         `SELECT mp.hero, COUNT(mp.id) AS games,
@@ -489,8 +503,9 @@ export async function handleStats(
     const winStreaks: { name: string; streak: number }[] = [];
 
     for (const results of resultsByPlayer.values()) {
-      const name = results[0]?.player_name ?? "";
-      winStreaks.push({ name, streak: computeCurrentStreak(results, "win") });
+      const ordered = sortResultsMostRecentFirst(results);
+      const name = ordered[0]?.player_name ?? "";
+      winStreaks.push({ name, streak: computeCurrentStreak(ordered, "win") });
     }
 
     const totalMatches = (matchCount.results[0] as { count: number }).count;
