@@ -74,9 +74,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
 
   const latestMatches = useMemo(
     () =>
-      [...recentMatches]
-        .sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id)
-        .slice(0, 5),
+      [...recentMatches].sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id),
     [recentMatches],
   );
 
@@ -365,7 +363,11 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
 
       <section className="dashboard-section">
         <h3>Recent Matches</h3>
-        <MatchesTable matches={latestMatches} emptyMessage="No matches recorded yet." />
+        <MatchesTable
+          matches={latestMatches}
+          initialLimit={5}
+          emptyMessage="No matches recorded yet."
+        />
       </section>
     </div>
   );

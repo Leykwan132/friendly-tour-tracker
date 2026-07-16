@@ -7,6 +7,7 @@ import type { Match } from "../types";
 interface MatchesTableProps {
   matches: Match[];
   emptyMessage?: string;
+  initialLimit?: number;
   renderActions?: (match: Match) => React.ReactNode;
 }
 
@@ -27,6 +28,7 @@ function teamSizeLabel(match: Match) {
 export function MatchesTable({
   matches,
   emptyMessage = "No matches recorded yet.",
+  initialLimit,
   renderActions,
 }: MatchesTableProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -77,6 +79,7 @@ export function MatchesTable({
       defaultSortKey="sortOrder"
       defaultDirection="asc"
       emptyMessage={emptyMessage}
+      initialLimit={initialLimit}
       expandedRowKey={expandedId}
       onRowClick={(row) => void toggleMatchDetails(row.id)}
       renderExpandedRow={(row) => (
