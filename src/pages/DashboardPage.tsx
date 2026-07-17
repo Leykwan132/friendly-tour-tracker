@@ -154,7 +154,7 @@ export function DashboardPage({ refreshKey }: DashboardPageProps) {
             <span className="stat-label">Most Wins</span>
             <span className="stat-value">
               {summary.mostWinsPlayer
-                ? `${summary.mostWinsPlayer.name} (${summary.mostWinsPlayer.wins}W)`
+                ? `${summary.mostWinsPlayer.names.join(", ")} (${summary.mostWinsPlayer.wins}W)`
                 : "—"}
             </span>
           </div>

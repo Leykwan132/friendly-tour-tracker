@@ -138,7 +138,7 @@ export interface SummaryStats {
   highestWinRateHero: { hero: string; games: number; wins: number; winPct: number } | null;
   mostKillsPlayer: { name: string; kills: number } | null;
   mostAssistsPlayer: { name: string; assists: number } | null;
-  mostWinsPlayer: { name: string; wins: number } | null;
+  mostWinsPlayer: { names: string[]; wins: number } | null;
   mostWinSide: { side: Side; wins: number } | null;
   mostWinsPair: {
     playerAName: string;
